@@ -147,7 +147,7 @@ func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmode
 		if errors.Is(err, sql.ErrNoRows) {
 			_, err := r.db.NewInsert().
 				Model(m).
-				Column("user_test_mapping_id", "test_section_mapping_id", "question", "user_answer").
+				Column("user_test_mapping_id", "test_section_mapping_id", "question", "user_answer", "changed_windows_count").
 				Returning("id").
 				Exec(ctx, &m.ID)
 			return err
@@ -158,7 +158,7 @@ func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmode
 	m.ID = existing.ID
 	_, err := r.db.NewUpdate().
 		Model(m).
-		Column("question", "user_answer", "marks_obtained", "aif_feedback", "has_graded").
+		Column("question", "user_answer", "changed_windows_count", "marks_obtained", "aif_feedback", "has_graded").
 		WherePK().
 		Exec(ctx)
 	return err

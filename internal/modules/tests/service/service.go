@@ -158,6 +158,48 @@ func (s *Service) SaveAnswers(
 		UserAnswer:           payload.Answers,
 		MarksObtained:        0,
 		AIFeedback:           "",
+		ChangedWindowsCount:  payload.ChangedWindowsCount,
+		HasGraded:            false,
+	}
+
+	if err := s.repo.UpsertUserQuestionMapping(ctx, &m); err != nil {
+		return nil, err
+	}
+
+	return &m, nil
+}
+
+func (s *Service) SaveAudioAnswer(
+	ctx context.Context,
+	userID uuid.UUID,
+	userTestMappingID uuid.UUID,
+	sectionID uuid.UUID,
+	question string,
+	changedWindowsCount int,
+	audioPath string,
+) (*usersmodel.UserQuestionMapping, error) {
+	mapping, err := s.repo.GetUserTestMappingByIDAndUserID(ctx, userTestMappingID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	section, err := s.repo.GetSectionByID(ctx, sectionID)
+	if err != nil {
+		return nil, err
+	}
+
+	if section.TestID != mapping.TestID {
+		return nil, errors.New("section does not belong to the test")
+	}
+
+	m := usersmodel.UserQuestionMapping{
+		UserTestMappingID:    userTestMappingID,
+		TestSectionMappingID: sectionID,
+		Question:             []string{question},
+		UserAnswer:           []string{audioPath},
+		MarksObtained:        0,
+		AIFeedback:           "",
+		ChangedWindowsCount:  changedWindowsCount,
 		HasGraded:            false,
 	}
 

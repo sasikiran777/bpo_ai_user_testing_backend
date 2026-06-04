@@ -13,3 +13,10 @@ type SaveAnswersRequest struct {
 	Answers             []string  `json:"answers" binding:"required"`
 	ChangedWindowsCount int       `json:"changed_windows_count"`
 }
+
+type SaveAudioAnswerRequest struct {
+	UserTestMappingID   string `form:"user_test_mapping_id"`
+	SectionID           string `form:"section_id"`
+	Question            string `form:"question"`
+	ChangedWindowsCount int    `form:"changed_windows_count"`
+}

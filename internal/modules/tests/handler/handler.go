@@ -4,6 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"ai_testing/internal/modules/tests/dto"
 	"ai_testing/internal/modules/tests/service"
@@ -200,5 +204,129 @@ func (h *Handler) SaveAnswers(c *gin.Context) {
 		http.StatusOK,
 		"Answers saved successfully",
 		dto.SaveAnswersResponse{ID: row.ID},
+	)
+}
+
+func (h *Handler) SaveAudioAnswer(c *gin.Context) {
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	userID, ok := userIDRaw.(uuid.UUID)
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	userTestMappingIDRaw := c.PostForm("user_test_mapping_id")
+	if userTestMappingIDRaw == "" {
+		helpers.Error(c, http.StatusBadRequest, "user_test_mapping_id is required")
+		return
+	}
+	userTestMappingID, err := uuid.Parse(userTestMappingIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid user_test_mapping_id")
+		return
+	}
+
+	sectionIDRaw := c.PostForm("section_id")
+	if sectionIDRaw == "" {
+		helpers.Error(c, http.StatusBadRequest, "section_id is required")
+		return
+	}
+	sectionID, err := uuid.Parse(sectionIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid section_id")
+		return
+	}
+
+	question := c.PostForm("question")
+	if question == "" {
+		helpers.Error(c, http.StatusBadRequest, "question is required")
+		return
+	}
+
+	changedWindowsCount := 0
+	if v := c.PostForm("changed_windows_count"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			helpers.Error(c, http.StatusBadRequest, "invalid changed_windows_count")
+			return
+		}
+		changedWindowsCount = n
+	}
+
+	file, err := c.FormFile("audio")
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "audio file is required")
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext == "" {
+		ext = ".webm"
+	}
+
+	allowed := map[string]struct{}{
+		".wav":  {},
+		".mp3":  {},
+		".m4a":  {},
+		".webm": {},
+		".ogg":  {},
+		".aac":  {},
+		".flac": {},
+	}
+	if _, ok := allowed[ext]; !ok {
+		helpers.Error(c, http.StatusBadRequest, "invalid audio file type")
+		return
+	}
+
+	fileName := uuid.NewString() + ext
+	relPath := filepath.Join(
+		"storage",
+		"audio",
+		userID.String(),
+		userTestMappingID.String(),
+		sectionID.String(),
+		fileName,
+	)
+	absDir := filepath.Dir(relPath)
+	if err := os.MkdirAll(absDir, 0o755); err != nil {
+		helpers.Error(c, http.StatusInternalServerError, "failed to create upload directory")
+		return
+	}
+
+	if err := c.SaveUploadedFile(file, relPath); err != nil {
+		helpers.Error(c, http.StatusInternalServerError, "failed to save audio file")
+		return
+	}
+
+	audioPath := filepath.ToSlash(relPath)
+	row, err := h.Service.SaveAudioAnswer(
+		c.Request.Context(),
+		userID,
+		userTestMappingID,
+		sectionID,
+		question,
+		changedWindowsCount,
+		audioPath,
+	)
+	if err != nil {
+		_ = os.Remove(relPath)
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "Not found")
+			return
+		}
+		helpers.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	helpers.Success(
+		c,
+		http.StatusOK,
+		"Audio answer saved successfully",
+		dto.SaveAudioAnswerResponse{ID: row.ID, AudioPath: audioPath},
 	)
 }

@@ -4,3 +4,4 @@ bin
 .devbox
 devbox.lock
 tmp/
+storage/

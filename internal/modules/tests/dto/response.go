@@ -56,6 +56,11 @@ type SaveAnswersResponse struct {
 	ID uuid.UUID `json:"id"`
 }
 
+type SaveAudioAnswerResponse struct {
+	ID        uuid.UUID `json:"id"`
+	AudioPath string    `json:"audio_path"`
+}
+
 func ToTestResponse(t testsmodel.Test) TestResponse {
 	res := TestResponse{
 		ID:          t.ID,
