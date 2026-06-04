@@ -1,0 +1,8 @@
+{
+  "packages": ["go", "gopls", "gotools", "golangci-lint", "air"],
+  "shell": {
+    "scripts": {
+      "dev": "air"
+    }
+  }
+}
