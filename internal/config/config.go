@@ -14,7 +14,6 @@ type Config struct {
 	DatabaseURL       string
 	JWTSecret         string
 	JWTTTLMinutes     int
-	RunSeeder         bool
 	AdminEmail        string
 	AdminPasswordHash string
 }
@@ -29,7 +28,6 @@ func Load() Config {
 		DatabaseURL:   getEnv("DATABASE_URL", ""),
 		JWTSecret:     getEnv("JWT_SECRET", ""),
 		JWTTTLMinutes: getEnvInt("JWT_TTL_MINUTES", 1440),
-		RunSeeder:     getEnvBool("RUN_SEEDER", false),
 	}
 }
 
@@ -56,16 +54,4 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
-}
-
-func getEnvBool(key string, fallback bool) bool {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return fallback
-	}
-	return b
 }

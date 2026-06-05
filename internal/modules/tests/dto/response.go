@@ -3,6 +3,7 @@ package dto
 import (
 	testsmodel "ai_testing/internal/modules/tests/model"
 	usersmodel "ai_testing/internal/modules/users/model"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,6 +60,20 @@ type SaveAnswersResponse struct {
 type SaveAudioAnswerResponse struct {
 	ID        uuid.UUID `json:"id"`
 	AudioPath string    `json:"audio_path"`
+}
+
+type SpeakingTopicResponse struct {
+	ID                   uuid.UUID `json:"id"`
+	TestSectionMappingID uuid.UUID `json:"test_section_mapping_id"`
+	Topic                string    `json:"topic"`
+}
+
+type ReadingComprehensionResponse struct {
+	ID                   uuid.UUID       `json:"id"`
+	TestSectionMappingID uuid.UUID       `json:"test_section_mapping_id"`
+	Title                string          `json:"title"`
+	Passage              string          `json:"passage"`
+	Questions            json.RawMessage `json:"questions"`
 }
 
 func ToTestResponse(t testsmodel.Test) TestResponse {
@@ -147,4 +162,26 @@ func ToUserTestMappingResponse(m usersmodel.UserTestMapping) UserTestMappingResp
 	}
 
 	return resp
+}
+
+func ToSpeakingTopicResponse(t testsmodel.SpeakingTopic) SpeakingTopicResponse {
+	return SpeakingTopicResponse{
+		ID:                   t.ID,
+		TestSectionMappingID: t.TestSectionMappingID,
+		Topic:                t.Topic,
+	}
+}
+
+func ToReadingComprehensionResponse(r testsmodel.ReadingComprehension) ReadingComprehensionResponse {
+	q := r.Questions
+	if q == nil {
+		q = json.RawMessage("[]")
+	}
+	return ReadingComprehensionResponse{
+		ID:                   r.ID,
+		TestSectionMappingID: r.TestSectionMappingID,
+		Title:                r.Title,
+		Passage:              r.Passage,
+		Questions:            q,
+	}
 }

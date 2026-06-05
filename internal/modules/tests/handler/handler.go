@@ -362,3 +362,45 @@ func (h *Handler) DropUserTest(c *gin.Context) {
 
 	helpers.Success(c, http.StatusOK, "User test dropped successfully", gin.H{"status": "dropped"})
 }
+
+func (h *Handler) GetRandomSpeakingTopic(c *gin.Context) {
+	sectionIDRaw := c.Param("sectionId")
+	sectionID, err := uuid.Parse(sectionIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid section id")
+		return
+	}
+
+	topic, err := h.Service.GetRandomSpeakingTopic(c.Request.Context(), sectionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "No topic found")
+			return
+		}
+		helpers.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	helpers.Success(c, http.StatusOK, "Speaking topic fetched successfully", dto.ToSpeakingTopicResponse(*topic))
+}
+
+func (h *Handler) GetRandomReadingComprehension(c *gin.Context) {
+	sectionIDRaw := c.Param("sectionId")
+	sectionID, err := uuid.Parse(sectionIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid section id")
+		return
+	}
+
+	rc, err := h.Service.GetRandomReadingComprehension(c.Request.Context(), sectionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "No comprehension found")
+			return
+		}
+		helpers.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	helpers.Success(c, http.StatusOK, "Reading comprehension fetched successfully", dto.ToReadingComprehensionResponse(*rc))
+}

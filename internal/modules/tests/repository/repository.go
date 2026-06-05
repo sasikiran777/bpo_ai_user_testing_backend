@@ -31,6 +31,34 @@ func (r *Repository) List(ctx context.Context) ([]model.Test, error) {
 	return tests, nil
 }
 
+func (r *Repository) GetRandomSpeakingTopic(ctx context.Context, sectionID uuid.UUID) (*model.SpeakingTopic, error) {
+	var t model.SpeakingTopic
+	if err := r.db.NewSelect().
+		Model(&t).
+		Where("test_section_mapping_id = ?", sectionID).
+		Where("is_active = true").
+		OrderExpr("random()").
+		Limit(1).
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *Repository) GetRandomReadingComprehension(ctx context.Context, sectionID uuid.UUID) (*model.ReadingComprehension, error) {
+	var rc model.ReadingComprehension
+	if err := r.db.NewSelect().
+		Model(&rc).
+		Where("test_section_mapping_id = ?", sectionID).
+		Where("is_active = true").
+		OrderExpr("random()").
+		Limit(1).
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return &rc, nil
+}
+
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*model.Test, error) {
 	var test model.Test
 	if err := r.db.NewSelect().

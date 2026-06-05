@@ -240,3 +240,17 @@ func (s *Service) DropUserTest(
 	}
 	return s.repo.MarkUserTestDropped(ctx, mapping.ID)
 }
+
+func (s *Service) GetRandomSpeakingTopic(
+	ctx context.Context,
+	sectionID uuid.UUID,
+) (*model.SpeakingTopic, error) {
+	return s.repo.GetRandomSpeakingTopic(ctx, sectionID)
+}
+
+func (s *Service) GetRandomReadingComprehension(
+	ctx context.Context,
+	sectionID uuid.UUID,
+) (*model.ReadingComprehension, error) {
+	return s.repo.GetRandomReadingComprehension(ctx, sectionID)
+}
