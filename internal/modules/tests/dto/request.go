@@ -11,6 +11,7 @@ type SaveAnswersRequest struct {
 	SectionID           uuid.UUID `json:"section_id" binding:"required"`
 	Questions           []string  `json:"questions" binding:"required"`
 	Answers             []string  `json:"answers" binding:"required"`
+	TestNotes           []string  `json:"test_notes"`
 	ChangedWindowsCount int       `json:"changed_windows_count"`
 }
 

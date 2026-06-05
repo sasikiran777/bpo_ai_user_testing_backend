@@ -142,6 +142,12 @@ func (s *Service) SaveAnswers(
 		return nil, err
 	}
 
+	if mapping.Status == "initialized" {
+		if err := s.repo.MarkUserTestInProgress(ctx, mapping.ID); err != nil {
+			return nil, err
+		}
+	}
+
 	section, err := s.repo.GetSectionByID(ctx, payload.SectionID)
 	if err != nil {
 		return nil, err
@@ -151,11 +157,17 @@ func (s *Service) SaveAnswers(
 		return nil, errors.New("section does not belong to the test")
 	}
 
+	testNotes := payload.TestNotes
+	if testNotes == nil {
+		testNotes = []string{}
+	}
+
 	m := usersmodel.UserQuestionMapping{
 		UserTestMappingID:    payload.UserTestMappingID,
 		TestSectionMappingID: payload.SectionID,
 		Question:             payload.Questions,
 		UserAnswer:           payload.Answers,
+		TestNotes:            testNotes,
 		MarksObtained:        0,
 		AIFeedback:           "",
 		ChangedWindowsCount:  payload.ChangedWindowsCount,
@@ -197,6 +209,7 @@ func (s *Service) SaveAudioAnswer(
 		TestSectionMappingID: sectionID,
 		Question:             []string{question},
 		UserAnswer:           []string{audioPath},
+		TestNotes:            []string{},
 		MarksObtained:        0,
 		AIFeedback:           "",
 		ChangedWindowsCount:  changedWindowsCount,
@@ -207,5 +220,23 @@ func (s *Service) SaveAudioAnswer(
 		return nil, err
 	}
 
+	if mapping.Status != "submitted" {
+		if err := s.repo.MarkUserTestSubmitted(ctx, mapping.ID); err != nil {
+			return nil, err
+		}
+	}
+
 	return &m, nil
+}
+
+func (s *Service) DropUserTest(
+	ctx context.Context,
+	userID uuid.UUID,
+	userTestMappingID uuid.UUID,
+) error {
+	mapping, err := s.repo.GetUserTestMappingByIDAndUserID(ctx, userTestMappingID, userID)
+	if err != nil {
+		return err
+	}
+	return s.repo.MarkUserTestDropped(ctx, mapping.ID)
 }

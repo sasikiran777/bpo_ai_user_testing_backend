@@ -12,6 +12,7 @@ import (
 	"ai_testing/internal/config"
 	database "ai_testing/internal/db"
 	apihttp "ai_testing/internal/http"
+	"ai_testing/internal/jobs"
 	"ai_testing/internal/log"
 
 	"github.com/uptrace/bun"
@@ -32,6 +33,8 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	jobs.StartUserTestMappingCron(ctx, logger, db)
 
 	go func() {
 		logger.Info("server_listen", "addr", srv.Addr)

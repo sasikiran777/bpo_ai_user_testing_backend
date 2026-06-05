@@ -13,6 +13,7 @@ type UserQuestionMapping struct {
 	TestSectionMappingID uuid.UUID `bun:"test_section_mapping_id,type:uuid,notnull"`
 	Question             []string  `bun:"question,type:jsonb,notnull,default:'[]'::jsonb"`
 	UserAnswer           []string  `bun:"user_answer,type:jsonb,notnull,default:'[]'::jsonb"`
+	TestNotes            []string  `bun:"test_notes,type:jsonb,notnull,default:'[]'::jsonb"`
 	MarksObtained        int       `bun:"marks_obtained"`
 	AIFeedback           string    `bun:"aif_feedback,type:text"`
 	ChangedWindowsCount  int       `bun:"changed_windows_count"`

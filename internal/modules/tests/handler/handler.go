@@ -330,3 +330,35 @@ func (h *Handler) SaveAudioAnswer(c *gin.Context) {
 		dto.SaveAudioAnswerResponse{ID: row.ID, AudioPath: audioPath},
 	)
 }
+
+func (h *Handler) DropUserTest(c *gin.Context) {
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	userID, ok := userIDRaw.(uuid.UUID)
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	idRaw := c.Param("userTestMappingId")
+	id, err := uuid.Parse(idRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid user_test_mapping_id")
+		return
+	}
+
+	if err := h.Service.DropUserTest(c.Request.Context(), userID, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "User test not found")
+			return
+		}
+		helpers.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	helpers.Success(c, http.StatusOK, "User test dropped successfully", gin.H{"status": "dropped"})
+}

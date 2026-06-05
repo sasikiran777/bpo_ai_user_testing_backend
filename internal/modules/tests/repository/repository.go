@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -147,7 +148,7 @@ func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmode
 		if errors.Is(err, sql.ErrNoRows) {
 			_, err := r.db.NewInsert().
 				Model(m).
-				Column("user_test_mapping_id", "test_section_mapping_id", "question", "user_answer", "changed_windows_count").
+				Column("user_test_mapping_id", "test_section_mapping_id", "question", "user_answer", "test_notes", "changed_windows_count").
 				Returning("id").
 				Exec(ctx, &m.ID)
 			return err
@@ -158,7 +159,40 @@ func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmode
 	m.ID = existing.ID
 	_, err := r.db.NewUpdate().
 		Model(m).
-		Column("question", "user_answer", "changed_windows_count", "marks_obtained", "aif_feedback", "has_graded").
+		Column("question", "user_answer", "test_notes", "changed_windows_count", "marks_obtained", "aif_feedback", "has_graded").
+		WherePK().
+		Exec(ctx)
+	return err
+}
+
+func (r *Repository) MarkUserTestInProgress(ctx context.Context, id uuid.UUID) error {
+	m := usersmodel.UserTestMapping{Status: "in_progress", StartedAt: time.Now()}
+	m.ID = id
+	_, err := r.db.NewUpdate().
+		Model(&m).
+		Column("status", "started_at").
+		WherePK().
+		Exec(ctx)
+	return err
+}
+
+func (r *Repository) MarkUserTestSubmitted(ctx context.Context, id uuid.UUID) error {
+	m := usersmodel.UserTestMapping{Status: "submitted", CompletedAt: time.Now()}
+	m.ID = id
+	_, err := r.db.NewUpdate().
+		Model(&m).
+		Column("status", "completed_at").
+		WherePK().
+		Exec(ctx)
+	return err
+}
+
+func (r *Repository) MarkUserTestDropped(ctx context.Context, id uuid.UUID) error {
+	m := usersmodel.UserTestMapping{Status: "dropped", CompletedAt: time.Now()}
+	m.ID = id
+	_, err := r.db.NewUpdate().
+		Model(&m).
+		Column("status", "completed_at").
 		WherePK().
 		Exec(ctx)
 	return err

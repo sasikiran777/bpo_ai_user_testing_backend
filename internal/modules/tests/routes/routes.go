@@ -13,5 +13,6 @@ func RegisterTestRoutes(r *gin.RouterGroup, h *handler.Handler) {
 	r.POST("/my-tests/save-audio", h.SaveAudioAnswer)
 	r.POST("/my-tests/:testId", h.CreateUserTestMapping)
 	r.GET("/my-tests/:testId", h.GetUserTestStatus)
+	r.PATCH("/my-tests/:userTestMappingId/drop", h.DropUserTest)
 	r.GET("/:testId", h.GetSectionsByTestID)
 }
