@@ -18,6 +18,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-ai_testing}:${POSTGRES_PASSWORD:-ai_testing}@db:5432/${POSTGRES_DB:-ai_testing}?sslmode=disable
     ports:
       - "${PORT:-8080}:8080"
+    volumes:
+      - ./storage:/app/storage
+      - ./models:/app/models
     depends_on:
       - db
 

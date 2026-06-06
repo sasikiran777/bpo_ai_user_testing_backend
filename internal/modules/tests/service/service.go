@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"ai_testing/internal/modules/tests/dto"
 	"ai_testing/internal/modules/tests/model"
@@ -220,7 +223,7 @@ func (s *Service) SaveAudioAnswer(
 		return nil, err
 	}
 
-	if mapping.Status != "submitted" {
+	if mapping.Status != "submitted" && mapping.Status != "graded" {
 		if err := s.repo.MarkUserTestSubmitted(ctx, mapping.ID); err != nil {
 			return nil, err
 		}
@@ -253,4 +256,113 @@ func (s *Service) GetRandomReadingComprehension(
 	sectionID uuid.UUID,
 ) (*model.ReadingComprehension, error) {
 	return s.repo.GetRandomReadingComprehension(ctx, sectionID)
+}
+
+func (s *Service) GetUserTestResults(
+	ctx context.Context,
+	userID uuid.UUID,
+	userTestMappingID uuid.UUID,
+) (*dto.UserTestResultsResponse, error) {
+	mapping, err := s.repo.GetUserTestMappingByIDAndUserID(ctx, userTestMappingID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	test, err := s.repo.GetByID(ctx, mapping.TestID)
+	if err != nil {
+		return nil, err
+	}
+
+	sections, err := s.repo.ListSectionsByTestID(ctx, mapping.TestID)
+	if err != nil {
+		return nil, err
+	}
+
+	answers, err := s.repo.ListUserQuestionMappingsByUserTestMappingID(ctx, mapping.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	answersBySection := make(map[uuid.UUID]usersmodel.UserQuestionMapping, len(answers))
+	for _, a := range answers {
+		answersBySection[a.TestSectionMappingID] = a
+	}
+
+	resp := dto.ToUserTestResultsResponse(*test, *mapping, sections, answersBySection)
+	return &resp, nil
+}
+
+func (s *Service) GetUserAudioFilePath(
+	ctx context.Context,
+	userID uuid.UUID,
+	userTestMappingID uuid.UUID,
+	sectionID uuid.UUID,
+) (string, error) {
+	mapping, err := s.repo.GetUserTestMappingByIDAndUserID(ctx, userTestMappingID, userID)
+	if err != nil {
+		return "", err
+	}
+
+	section, err := s.repo.GetSectionByID(ctx, sectionID)
+	if err != nil {
+		return "", err
+	}
+	if section.TestID != mapping.TestID {
+		return "", errors.New("section does not belong to the test")
+	}
+
+	row, err := s.repo.GetUserQuestionMappingByUserTestMappingIDAndSectionID(ctx, mapping.ID, sectionID)
+	if err != nil {
+		return "", err
+	}
+
+	if len(row.UserAnswer) == 0 {
+		return "", errors.New("audio not found")
+	}
+
+	audioPath := strings.TrimSpace(row.UserAnswer[0])
+	if audioPath == "" {
+		return "", errors.New("audio not found")
+	}
+
+	audioPath = filepath.ToSlash(filepath.Clean(audioPath))
+	if filepath.IsAbs(filepath.FromSlash(audioPath)) {
+		return "", errors.New("invalid audio path")
+	}
+	if !strings.HasPrefix(audioPath, "storage/audio/") {
+		return "", errors.New("answer is not an audio file")
+	}
+
+	expectedPrefix := filepath.ToSlash(filepath.Join(
+		"storage",
+		"audio",
+		userID.String(),
+		userTestMappingID.String(),
+		sectionID.String(),
+	)) + "/"
+	if !strings.HasPrefix(audioPath, expectedPrefix) {
+		return "", errors.New("audio does not belong to the user")
+	}
+
+	baseAbs, err := filepath.Abs(filepath.FromSlash(filepath.Join("storage", "audio")))
+	if err != nil {
+		return "", err
+	}
+	fileAbs, err := filepath.Abs(filepath.FromSlash(audioPath))
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(fileAbs, baseAbs+string(os.PathSeparator)) && fileAbs != baseAbs {
+		return "", errors.New("invalid audio path")
+	}
+
+	st, err := os.Stat(fileAbs)
+	if err != nil {
+		return "", err
+	}
+	if st.IsDir() {
+		return "", errors.New("invalid audio file")
+	}
+
+	return fileAbs, nil
 }

@@ -1,6 +1,7 @@
 package log
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -16,7 +17,11 @@ func New(cfg config.Config) *slog.Logger {
 		AddSource: cfg.IsDev(),
 	}
 
-	h := slog.NewJSONHandler(os.Stdout, opts)
+	var w io.Writer = os.Stdout
+	if cfg.LogSpaced {
+		w = newSpacedWriter(w)
+	}
+	h := slog.NewJSONHandler(w, opts)
 	return slog.New(h).With("service", "api", "env", cfg.Env)
 }
 

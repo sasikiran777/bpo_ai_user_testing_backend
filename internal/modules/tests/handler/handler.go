@@ -160,6 +160,79 @@ func (h *Handler) GetUserTestStatus(c *gin.Context) {
 	helpers.Success(c, http.StatusOK, "User test status fetched successfully", dto.ToUserTestMappingResponse(*mapping))
 }
 
+func (h *Handler) GetUserTestResults(c *gin.Context) {
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	userID, ok := userIDRaw.(uuid.UUID)
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	idRaw := c.Param("userTestMappingId")
+	id, err := uuid.Parse(idRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid user_test_mapping_id")
+		return
+	}
+
+	resp, err := h.Service.GetUserTestResults(c.Request.Context(), userID, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "User test not found")
+			return
+		}
+		helpers.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	helpers.Success(c, http.StatusOK, "User test results fetched successfully", resp)
+}
+
+func (h *Handler) GetUserTestAudio(c *gin.Context) {
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	userID, ok := userIDRaw.(uuid.UUID)
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	mappingIDRaw := c.Param("userTestMappingId")
+	mappingID, err := uuid.Parse(mappingIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid user_test_mapping_id")
+		return
+	}
+
+	sectionIDRaw := c.Param("sectionId")
+	sectionID, err := uuid.Parse(sectionIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid section_id")
+		return
+	}
+
+	absPath, err := h.Service.GetUserAudioFilePath(c.Request.Context(), userID, mappingID, sectionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, os.ErrNotExist) {
+			helpers.Error(c, http.StatusNotFound, "Audio not found")
+			return
+		}
+		helpers.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	c.File(absPath)
+}
+
 func (h *Handler) SaveAnswers(c *gin.Context) {
 	userIDRaw, ok := c.Get("user_id")
 	if !ok {

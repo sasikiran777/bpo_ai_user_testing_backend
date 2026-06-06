@@ -5,3 +5,4 @@ bin
 devbox.lock
 tmp/
 storage/
+models/*.bin

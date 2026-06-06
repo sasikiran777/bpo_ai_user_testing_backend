@@ -1,5 +1,5 @@
 {
-  "packages": ["go", "gopls", "gotools", "golangci-lint", "air"],
+  "packages": ["go", "gopls", "gotools", "golangci-lint", "air", "ffmpeg", "whisper-cpp"],
   "shell": {
     "scripts": {
       "dev": "air"

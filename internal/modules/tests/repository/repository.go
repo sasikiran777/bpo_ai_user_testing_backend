@@ -165,6 +165,40 @@ func (r *Repository) GetUserTestMappingByIDAndUserID(
 	return &mapping, nil
 }
 
+func (r *Repository) ListUserQuestionMappingsByUserTestMappingID(
+	ctx context.Context,
+	userTestMappingID uuid.UUID,
+) ([]usersmodel.UserQuestionMapping, error) {
+	var rows []usersmodel.UserQuestionMapping
+	if err := r.db.NewSelect().
+		Model(&rows).
+		Where("user_test_mapping_id = ?", userTestMappingID).
+		Scan(ctx); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return []usersmodel.UserQuestionMapping{}, nil
+		}
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (r *Repository) GetUserQuestionMappingByUserTestMappingIDAndSectionID(
+	ctx context.Context,
+	userTestMappingID uuid.UUID,
+	sectionID uuid.UUID,
+) (*usersmodel.UserQuestionMapping, error) {
+	var row usersmodel.UserQuestionMapping
+	if err := r.db.NewSelect().
+		Model(&row).
+		Where("user_test_mapping_id = ?", userTestMappingID).
+		Where("test_section_mapping_id = ?", sectionID).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
 func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmodel.UserQuestionMapping) error {
 	var existing usersmodel.UserQuestionMapping
 	if err := r.db.NewSelect().
@@ -187,7 +221,7 @@ func (r *Repository) UpsertUserQuestionMapping(ctx context.Context, m *usersmode
 	m.ID = existing.ID
 	_, err := r.db.NewUpdate().
 		Model(m).
-		Column("question", "user_answer", "test_notes", "changed_windows_count", "marks_obtained", "aif_feedback", "has_graded").
+		Column("question", "user_answer", "test_notes", "changed_windows_count", "marks_obtained", "ai_feedback", "has_graded").
 		WherePK().
 		Exec(ctx)
 	return err

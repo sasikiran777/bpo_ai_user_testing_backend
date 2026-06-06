@@ -34,7 +34,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	jobs.StartUserTestMappingCron(ctx, logger, db)
+	if cfg.UserTestCronEnabled {
+		jobs.StartUserTestMappingCron(ctx, logger, db, &cfg)
+	} else {
+		logger.Info("cron_user_test_mapping_disabled")
+	}
 
 	go func() {
 		logger.Info("server_listen", "addr", srv.Addr)

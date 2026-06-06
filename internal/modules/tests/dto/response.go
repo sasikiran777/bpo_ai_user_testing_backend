@@ -76,6 +76,27 @@ type ReadingComprehensionResponse struct {
 	Questions            json.RawMessage `json:"questions"`
 }
 
+type UserTestSectionResultResponse struct {
+	TestSectionResponse
+
+	Questions           []string `json:"questions"`
+	Answers             []string `json:"answers"`
+	TestNotes           []string `json:"test_notes"`
+	MarksObtained       int      `json:"marks_obtained"`
+	AIFeedback          string   `json:"ai_feedback"`
+	ChangedWindowsCount int      `json:"changed_windows_count"`
+	HasGraded           bool     `json:"has_graded"`
+}
+
+type UserTestResultsResponse struct {
+	UserTestMapping    UserTestMappingResponse         `json:"user_test_mapping"`
+	Test               TestResponse                    `json:"test"`
+	TotalMarksObtained int                             `json:"total_marks_obtained"`
+	TotalMaxMarks      int                             `json:"total_max_marks"`
+	Sections           []UserTestSectionResultResponse `json:"sections"`
+	GradingCompleted   bool                            `json:"grading_completed"`
+}
+
 func ToTestResponse(t testsmodel.Test) TestResponse {
 	res := TestResponse{
 		ID:          t.ID,
@@ -183,5 +204,53 @@ func ToReadingComprehensionResponse(r testsmodel.ReadingComprehension) ReadingCo
 		Title:                r.Title,
 		Passage:              r.Passage,
 		Questions:            q,
+	}
+}
+
+func ToUserTestResultsResponse(
+	test testsmodel.Test,
+	mapping usersmodel.UserTestMapping,
+	sections []testsmodel.TestSectionMapping,
+	answersBySection map[uuid.UUID]usersmodel.UserQuestionMapping,
+) UserTestResultsResponse {
+	totalMax := 0
+	totalObtained := 0
+	outSections := make([]UserTestSectionResultResponse, 0, len(sections))
+	for _, s := range sections {
+		totalMax += s.MaxMarks
+		a, ok := answersBySection[s.ID]
+		if !ok {
+			outSections = append(outSections, UserTestSectionResultResponse{
+				TestSectionResponse: ToTestSectionResponse(s),
+				Questions:           []string{},
+				Answers:             []string{},
+				TestNotes:           []string{},
+				MarksObtained:       0,
+				AIFeedback:          "",
+				ChangedWindowsCount: 0,
+				HasGraded:           false,
+			})
+			continue
+		}
+		totalObtained += a.MarksObtained
+		outSections = append(outSections, UserTestSectionResultResponse{
+			TestSectionResponse: ToTestSectionResponse(s),
+			Questions:           a.Question,
+			Answers:             a.UserAnswer,
+			TestNotes:           a.TestNotes,
+			MarksObtained:       a.MarksObtained,
+			AIFeedback:          a.AIFeedback,
+			ChangedWindowsCount: a.ChangedWindowsCount,
+			HasGraded:           a.HasGraded,
+		})
+	}
+
+	return UserTestResultsResponse{
+		UserTestMapping:    ToUserTestMappingResponse(mapping),
+		Test:               ToTestResponse(test),
+		TotalMarksObtained: totalObtained,
+		TotalMaxMarks:      totalMax,
+		Sections:           outSections,
+		GradingCompleted:   mapping.GradingCompleted,
 	}
 }
