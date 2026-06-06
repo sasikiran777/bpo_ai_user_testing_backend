@@ -25,6 +25,22 @@ func New(service *service.Service) *Handler {
 	return &Handler{Service: service}
 }
 
+func getUserID(c *gin.Context) (uuid.UUID, bool) {
+	userIDRaw, ok := c.Get("user_id")
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return uuid.Nil, false
+	}
+
+	userID, ok := userIDRaw.(uuid.UUID)
+	if !ok {
+		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
+		return uuid.Nil, false
+	}
+
+	return userID, true
+}
+
 func (h *Handler) List(c *gin.Context) {
 	tests, err := h.Service.List(c.Request.Context())
 	if err != nil {
@@ -41,15 +57,8 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) ListForUser(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -84,15 +93,8 @@ func (h *Handler) GetSectionsByTestID(c *gin.Context) {
 }
 
 func (h *Handler) CreateUserTestMapping(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -128,15 +130,8 @@ func (h *Handler) CreateUserTestMapping(c *gin.Context) {
 }
 
 func (h *Handler) GetUserTestStatus(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -161,15 +156,8 @@ func (h *Handler) GetUserTestStatus(c *gin.Context) {
 }
 
 func (h *Handler) GetUserTestResults(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -194,15 +182,8 @@ func (h *Handler) GetUserTestResults(c *gin.Context) {
 }
 
 func (h *Handler) GetUserTestAudio(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -234,15 +215,8 @@ func (h *Handler) GetUserTestAudio(c *gin.Context) {
 }
 
 func (h *Handler) SaveAnswers(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -281,15 +255,8 @@ func (h *Handler) SaveAnswers(c *gin.Context) {
 }
 
 func (h *Handler) SaveAudioAnswer(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -366,12 +333,12 @@ func (h *Handler) SaveAudioAnswer(c *gin.Context) {
 		fileName,
 	)
 	absDir := filepath.Dir(relPath)
-	if err := os.MkdirAll(absDir, 0o755); err != nil {
+	if err = os.MkdirAll(absDir, 0o755); err != nil {
 		helpers.Error(c, http.StatusInternalServerError, "failed to create upload directory")
 		return
 	}
 
-	if err := c.SaveUploadedFile(file, relPath); err != nil {
+	if err = c.SaveUploadedFile(file, relPath); err != nil {
 		helpers.Error(c, http.StatusInternalServerError, "failed to save audio file")
 		return
 	}
@@ -405,15 +372,8 @@ func (h *Handler) SaveAudioAnswer(c *gin.Context) {
 }
 
 func (h *Handler) DropUserTest(c *gin.Context) {
-	userIDRaw, ok := c.Get("user_id")
+	userID, ok := getUserID(c)
 	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	userID, ok := userIDRaw.(uuid.UUID)
-	if !ok {
-		helpers.Error(c, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 

@@ -40,8 +40,8 @@ func (s *Service) List(ctx context.Context) ([]model.Test, error) {
 	}
 
 	byTestID := make(map[uuid.UUID][]model.TestSectionMapping, len(tests))
-	for _, s := range sections {
-		byTestID[s.TestID] = append(byTestID[s.TestID], s)
+	for _, section := range sections {
+		byTestID[section.TestID] = append(byTestID[section.TestID], section)
 	}
 
 	for i := range tests {
@@ -66,15 +66,15 @@ func (s *Service) ListForUser(
 	}
 
 	byTestID := make(map[uuid.UUID]usersmodel.UserTestMapping, len(mappings))
-	for _, m := range mappings {
-		byTestID[m.TestID] = m
+	for _, mapping := range mappings {
+		byTestID[mapping.TestID] = mapping
 	}
 
 	resp := make([]dto.TestWithUserStatusResponse, 0, len(tests))
 	for _, t := range tests {
-		if m, ok := byTestID[t.ID]; ok {
-			mm := m
-			resp = append(resp, dto.ToTestWithUserStatusResponse(t, &mm))
+		if mapping, ok := byTestID[t.ID]; ok {
+			m := mapping
+			resp = append(resp, dto.ToTestWithUserStatusResponse(t, &m))
 			continue
 		}
 		resp = append(resp, dto.ToTestWithUserStatusResponse(t, nil))
@@ -111,17 +111,17 @@ func (s *Service) CreateUserTestMapping(
 		return nil, err
 	}
 
-	mapping := usersmodel.UserTestMapping{
+	userTestMapping := usersmodel.UserTestMapping{
 		UserID:               userID,
 		TestID:               testID,
 		MicroPhonePermission: microPhonePermission,
 	}
 
-	if err := s.repo.CreateUserTestMapping(ctx, &mapping); err != nil {
+	if err := s.repo.CreateUserTestMapping(ctx, &userTestMapping); err != nil {
 		return nil, err
 	}
 
-	return &mapping, nil
+	return &userTestMapping, nil
 }
 
 func (s *Service) GetUserTestStatus(
@@ -165,7 +165,7 @@ func (s *Service) SaveAnswers(
 		testNotes = []string{}
 	}
 
-	m := usersmodel.UserQuestionMapping{
+	userQuestionMapping := usersmodel.UserQuestionMapping{
 		UserTestMappingID:    payload.UserTestMappingID,
 		TestSectionMappingID: payload.SectionID,
 		Question:             payload.Questions,
@@ -177,11 +177,11 @@ func (s *Service) SaveAnswers(
 		HasGraded:            false,
 	}
 
-	if err := s.repo.UpsertUserQuestionMapping(ctx, &m); err != nil {
+	if err := s.repo.UpsertUserQuestionMapping(ctx, &userQuestionMapping); err != nil {
 		return nil, err
 	}
 
-	return &m, nil
+	return &userQuestionMapping, nil
 }
 
 func (s *Service) SaveAudioAnswer(
@@ -207,7 +207,7 @@ func (s *Service) SaveAudioAnswer(
 		return nil, errors.New("section does not belong to the test")
 	}
 
-	m := usersmodel.UserQuestionMapping{
+	userQuestionMapping := usersmodel.UserQuestionMapping{
 		UserTestMappingID:    userTestMappingID,
 		TestSectionMappingID: sectionID,
 		Question:             []string{question},
@@ -219,7 +219,7 @@ func (s *Service) SaveAudioAnswer(
 		HasGraded:            false,
 	}
 
-	if err := s.repo.UpsertUserQuestionMapping(ctx, &m); err != nil {
+	if err := s.repo.UpsertUserQuestionMapping(ctx, &userQuestionMapping); err != nil {
 		return nil, err
 	}
 
@@ -229,7 +229,7 @@ func (s *Service) SaveAudioAnswer(
 		}
 	}
 
-	return &m, nil
+	return &userQuestionMapping, nil
 }
 
 func (s *Service) DropUserTest(
@@ -284,8 +284,8 @@ func (s *Service) GetUserTestResults(
 	}
 
 	answersBySection := make(map[uuid.UUID]usersmodel.UserQuestionMapping, len(answers))
-	for _, a := range answers {
-		answersBySection[a.TestSectionMappingID] = a
+	for _, answerRow := range answers {
+		answersBySection[answerRow.TestSectionMappingID] = answerRow
 	}
 
 	resp := dto.ToUserTestResultsResponse(*test, *mapping, sections, answersBySection)
