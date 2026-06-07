@@ -17,16 +17,12 @@ type Config struct {
 	JWTTTLMinutes       int
 	AdminEmail          string
 	AdminPasswordHash   string
-	ChutesAIURL         string
-	ChutesAIAPIKey      string
-	DeepseekModel       string
-	ModelRouting        string
 	AILogRaw            bool
-	WhisperBin          string
-	WhisperModelPath    string
-	WhisperLanguage     string
 	UserTestCronSeconds int
 	UserTestCronEnabled bool
+	GraderURL           string
+	GraderToken         string
+	GraderTimeoutSec    int
 }
 
 func Load() Config {
@@ -41,16 +37,12 @@ func Load() Config {
 		DatabaseURL:         getEnv("DATABASE_URL", ""),
 		JWTSecret:           getEnv("JWT_SECRET", ""),
 		JWTTTLMinutes:       getEnvInt("JWT_TTL_MINUTES", 1440),
-		ChutesAIURL:         getEnv("CHUTES_AI_URL", ""),
-		ChutesAIAPIKey:      getEnv("CHUTES_AI_API_KEY", ""),
-		DeepseekModel:       getEnv("DEEPSEEK_MODEL", ""),
-		ModelRouting:        getEnv("MODEL_ROUTING", ""),
 		AILogRaw:            getEnvBool("AI_LOG_RAW", false),
-		WhisperBin:          getEnv("WHISPER_BIN", "whisper-cli"),
-		WhisperModelPath:    getEnv("WHISPER_MODEL_PATH", "models/ggml-small.bin"),
-		WhisperLanguage:     getEnv("WHISPER_LANGUAGE", "en"),
 		UserTestCronSeconds: getEnvInt("USER_TEST_CRON_SECONDS", 60),
 		UserTestCronEnabled: getEnvBool("USER_TEST_CRON_ENABLED", true),
+		GraderURL:           getEnv("GRADER_URL", "http://localhost:8000"),
+		GraderToken:         getEnv("GRADER_TOKEN", ""),
+		GraderTimeoutSec:    getEnvInt("GRADER_TIMEOUT_SECONDS", 180),
 	}
 }
 

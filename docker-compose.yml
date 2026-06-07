@@ -16,6 +16,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-ai_testing}:${POSTGRES_PASSWORD:-ai_testing}@db:5432/${POSTGRES_DB:-ai_testing}?sslmode=disable
+      GRADER_URL: ${GRADER_URL:-http://grader:8000}
     ports:
       - "${PORT:-8080}:8080"
     volumes:
@@ -23,6 +24,23 @@ services:
       - ./models:/app/models
     depends_on:
       - db
+      - grader
+
+  grader:
+    build: ./services/grader
+    env_file:
+      - ./services/grader/.env
+    environment:
+      STORAGE_ROOT: /app
+      HF_HOME: /root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./storage:/app/storage
+      - grader_hf_cache:/root/.cache/huggingface
+    depends_on:
+      - db
 
 volumes:
   db_data:
+  grader_hf_cache:

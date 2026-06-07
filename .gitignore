@@ -6,3 +6,6 @@ devbox.lock
 tmp/
 storage/
 models/*.bin
+services/grader/.venv/
+services/grader/__pycache__/
+services/grader/.python-version

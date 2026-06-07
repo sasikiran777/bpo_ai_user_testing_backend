@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"ai_testing/internal/ai"
-	"ai_testing/internal/ai/stt"
 	"ai_testing/internal/config"
 	testsmodel "ai_testing/internal/modules/tests/model"
 	usersmodel "ai_testing/internal/modules/users/model"
@@ -34,22 +33,7 @@ func StartUserTestMappingCron(ctx context.Context, logger *slog.Logger, db *bun.
 		return
 	}
 
-	llm, err := ai.NewChutesLLM(cfg)
-	if err != nil {
-		logger.Error("ai_llm_init_error", "error", err.Error())
-		return
-	}
-	grader, err := ai.NewGrader(llm)
-	if err != nil {
-		logger.Error("ai_grader_init_error", "error", err.Error())
-		return
-	}
-
-	transcriber, err := stt.NewWhisperCLI(cfg.WhisperBin, cfg.WhisperModelPath, cfg.WhisperLanguage)
-	if err != nil {
-		logger.Error("whisper_init_error", "error", err.Error())
-		return
-	}
+	pyClient := ai.NewPyGraderClient(cfg.GraderURL, cfg.GraderToken, cfg.GraderTimeoutSec)
 
 	intervalSeconds := cfg.UserTestCronSeconds
 	if intervalSeconds <= 0 {
@@ -68,7 +52,7 @@ func StartUserTestMappingCron(ctx context.Context, logger *slog.Logger, db *bun.
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				runCronTick(ctx, logger, db, grader, transcriber, cfg.AILogRaw)
+				runCronTick(ctx, logger, db, pyClient, cfg.AILogRaw)
 			}
 		}
 	}()
@@ -78,14 +62,13 @@ func runCronTick(
 	ctx context.Context,
 	logger *slog.Logger,
 	db *bun.DB,
-	grader *ai.Grader,
-	transcriber *stt.WhisperCLI,
+	pyClient *ai.PyGraderClient,
 	aiLogRaw bool,
 ) {
 	start := time.Now()
 	logger.Info("cron_user_test_mapping_tick_start")
 	initializedScanned, droppedCount := dropExpiredInitialized(ctx, logger, db)
-	submittedScanned, gradedMappings, gradedRows := gradeSubmitted(ctx, logger, db, grader, transcriber, aiLogRaw)
+	submittedScanned, gradedMappings, gradedRows := gradeSubmitted(ctx, logger, db, pyClient, aiLogRaw)
 	logger.Info(
 		"cron_user_test_mapping_tick_finish",
 		"initialized_scanned", initializedScanned,
@@ -134,8 +117,7 @@ func gradeSubmitted(
 	ctx context.Context,
 	logger *slog.Logger,
 	db *bun.DB,
-	grader *ai.Grader,
-	transcriber *stt.WhisperCLI,
+	pyClient *ai.PyGraderClient,
 	aiLogRaw bool,
 ) (int, int, int) {
 	rows, err := listMappingsForGrading(ctx, db, 25)
@@ -147,7 +129,7 @@ func gradeSubmitted(
 	gradedMappings := 0
 	gradedRows := 0
 	for _, r := range rows {
-		n, didGrade := gradeOneMapping(ctx, logger, db, grader, transcriber, r, aiLogRaw)
+		n, didGrade := gradeOneMapping(ctx, logger, db, pyClient, r, aiLogRaw)
 		if didGrade {
 			gradedMappings++
 		}
@@ -160,8 +142,7 @@ func gradeOneMapping(
 	ctx context.Context,
 	logger *slog.Logger,
 	db *bun.DB,
-	grader *ai.Grader,
-	transcriber *stt.WhisperCLI,
+	pyClient *ai.PyGraderClient,
 	mapping usersmodel.UserTestMapping,
 	aiLogRaw bool,
 ) (int, bool) {
@@ -185,56 +166,46 @@ func gradeOneMapping(
 
 	maxMarksBySection := buildMaxMarksIndex(sections)
 
-	attempt := ai.Attempt{
-		UserTestMappingID: mapping.ID,
-		TestID:            mapping.TestID,
-		Sections:          make([]ai.SectionAttempt, 0, len(sections)),
+	if pyClient == nil {
+		logger.Error("cron_py_grader_nil", "user_test_mapping_id", mapping.ID.String())
+		return 0, false
 	}
-	speakingNeedsTranscript := false
-	speakingNeedsTranscript, pendingCount = appendAttemptSections(
-		ctx,
-		logger,
-		db,
-		transcriber,
-		mapping.ID,
-		sections,
-		answersBySection,
-		&attempt,
-		pendingCount,
-	)
 
-	if pendingCount == 0 && !speakingNeedsTranscript {
+	pyReq, sectionOrder := buildPyGradeRequest(mapping, sections, answersBySection)
+	if pendingCount == 0 {
 		markMappingAsGraded(ctx, logger, db, mapping)
 		return 0, false
 	}
 
 	aiStart := time.Now()
 	markMappingAsInGrading(ctx, logger, db, mapping)
-	logger.Info("cron_ai_call_start", "user_test_mapping_id", mapping.ID.String())
+	logger.Info("cron_py_grader_call_start", "user_test_mapping_id", mapping.ID.String())
 	actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	grades, prompt, raw, err := grader.GradeWithRaw(actx, attempt)
+	out, raw, err := pyClient.Grade(actx, pyReq)
 	cancel()
 	if err != nil {
-		logAIDebug(ctx, logger, mapping.ID, prompt, raw, aiLogRaw)
-		logger.Error("cron_ai_grade_error", "user_test_mapping_id", mapping.ID.String(), "error", err.Error())
+		logPyDebug(ctx, logger, mapping.ID, raw, aiLogRaw)
+		logger.Error("cron_py_grader_error", "user_test_mapping_id", mapping.ID.String(), "error", err.Error())
 		return 0, false
 	}
 	logger.Info(
-		"cron_ai_call_finish",
+		"cron_py_grader_call_finish",
 		"user_test_mapping_id", mapping.ID.String(),
 		"duration_ms", time.Since(aiStart).Milliseconds(),
 	)
-	logAIDebug(ctx, logger, mapping.ID, prompt, raw, aiLogRaw)
+	logPyDebug(ctx, logger, mapping.ID, raw, aiLogRaw)
 
-	updatedRows := applyGrades(
+	speakingBySection := buildSpeakingIndex(sections)
+	updatedRows := applyPyGrades(
 		ctx,
 		logger,
 		db,
 		mapping.ID,
-		attempt.Sections,
-		grades,
+		sectionOrder,
+		out.Sections,
 		answersBySection,
 		maxMarksBySection,
+		speakingBySection,
 	)
 
 	cnt, err := db.NewSelect().
@@ -252,6 +223,157 @@ func gradeOneMapping(
 
 	markMappingAsGraded(ctx, logger, db, mapping)
 	return updatedRows, true
+}
+
+func buildPyGradeRequest(
+	mapping usersmodel.UserTestMapping,
+	sections []testsmodel.TestSectionMapping,
+	answersBySection map[uuid.UUID]usersmodel.UserQuestionMapping,
+) (ai.PyGradeRequest, []uuid.UUID) {
+	req := ai.PyGradeRequest{
+		UserTestMappingID: mapping.ID.String(),
+		TestID:            mapping.TestID.String(),
+		Sections:          make([]ai.PySectionAttempt, 0, len(sections)),
+	}
+	order := make([]uuid.UUID, 0, len(sections))
+
+	for _, s := range sections {
+		a, ok := answersBySection[s.ID]
+		if !ok {
+			continue
+		}
+
+		testNotes := a.TestNotes
+		if isSpeakingSection(s.Name, s.Description) {
+			testNotes = []string{}
+			if len(a.TestNotes) > 0 {
+				t := strings.TrimSpace(a.TestNotes[0])
+				if t != "" {
+					testNotes = []string{t}
+				}
+			}
+		}
+
+		req.Sections = append(req.Sections, ai.PySectionAttempt{
+			TestSectionMappingID: s.ID.String(),
+			Name:                 s.Name,
+			Description:          s.Description,
+			MaxMarks:             s.MaxMarks,
+			Questions:            a.Question,
+			Answers:              a.UserAnswer,
+			TestNotes:            testNotes,
+		})
+		order = append(order, s.ID)
+	}
+
+	return req, order
+}
+
+func buildSpeakingIndex(sections []testsmodel.TestSectionMapping) map[uuid.UUID]bool {
+	out := make(map[uuid.UUID]bool, len(sections))
+	for _, s := range sections {
+		if isSpeakingSection(s.Name, s.Description) {
+			out[s.ID] = true
+		}
+	}
+	return out
+}
+
+func applyPyGrades(
+	ctx context.Context,
+	logger *slog.Logger,
+	db *bun.DB,
+	userTestMappingID uuid.UUID,
+	expectedOrder []uuid.UUID,
+	results []ai.PySectionResult,
+	answersBySection map[uuid.UUID]usersmodel.UserQuestionMapping,
+	maxMarksBySection map[uuid.UUID]int,
+	speakingBySection map[uuid.UUID]bool,
+) int {
+	updatedRows := 0
+	for i, r := range results {
+		sectionID, err := uuid.Parse(strings.TrimSpace(r.TestSectionMappingID))
+		if err != nil {
+			if i < len(expectedOrder) {
+				sectionID = expectedOrder[i]
+				logger.Warn(
+					"cron_py_invalid_section_id_fallback",
+					"user_test_mapping_id", userTestMappingID.String(),
+					"test_section_mapping_id", r.TestSectionMappingID,
+					"fallback_test_section_mapping_id", sectionID.String(),
+					"error", err.Error(),
+				)
+			} else {
+				logger.Error(
+					"cron_py_invalid_section_id",
+					"user_test_mapping_id", userTestMappingID.String(),
+					"test_section_mapping_id", r.TestSectionMappingID,
+					"error", err.Error(),
+				)
+				continue
+			}
+		}
+
+		existing, ok := answersBySection[sectionID]
+		if !ok {
+			continue
+		}
+		maxMarks, ok := maxMarksBySection[sectionID]
+		if !ok {
+			continue
+		}
+
+		marks := r.MarksObtained
+		if marks < 0 {
+			marks = 0
+		}
+		if marks > maxMarks {
+			marks = maxMarks
+		}
+
+		u := usersmodel.UserQuestionMapping{
+			MarksObtained: marks,
+			AIFeedback:    r.AIFeedback,
+			HasGraded:     true,
+		}
+		cols := []string{"marks_obtained", "ai_feedback", "has_graded"}
+
+		if speakingBySection[sectionID] {
+			transcript := ""
+			if r.Transcript != nil {
+				transcript = strings.TrimSpace(*r.Transcript)
+			}
+			if transcript == "" {
+				u.TestNotes = []string{}
+			} else {
+				u.TestNotes = []string{transcript}
+			}
+			cols = append(cols, "test_notes")
+		}
+
+		u.ID = existing.ID
+		if _, err := db.NewUpdate().
+			Model(&u).
+			Column(cols...).
+			WherePK().
+			Exec(ctx); err != nil {
+			logger.Error("cron_grade_update_error", "user_question_mapping_id", existing.ID.String(), "error", err.Error())
+			continue
+		}
+		updatedRows++
+	}
+	return updatedRows
+}
+
+func logPyDebug(ctx context.Context, logger *slog.Logger, userTestMappingID uuid.UUID, raw string, aiLogRaw bool) {
+	if logger.Enabled(ctx, slog.LevelDebug) {
+		logger.Debug("cron_py_raw", "user_test_mapping_id", userTestMappingID.String(), "raw", truncate(raw, 8000))
+		return
+	}
+	if !aiLogRaw {
+		return
+	}
+	logger.Info("cron_py_raw", "user_test_mapping_id", userTestMappingID.String(), "raw", truncate(raw, 2000))
 }
 
 func listInitializedMappings(ctx context.Context, db *bun.DB, limit int) ([]usersmodel.UserTestMapping, error) {
@@ -347,132 +469,6 @@ func buildMaxMarksIndex(sections []testsmodel.TestSectionMapping) map[uuid.UUID]
 	return maxMarksBySection
 }
 
-func appendAttemptSections(
-	ctx context.Context,
-	logger *slog.Logger,
-	db *bun.DB,
-	transcriber *stt.WhisperCLI,
-	userTestMappingID uuid.UUID,
-	sections []testsmodel.TestSectionMapping,
-	answersBySection map[uuid.UUID]usersmodel.UserQuestionMapping,
-	attempt *ai.Attempt,
-	pendingCount int,
-) (bool, int) {
-	speakingNeedsTranscript := false
-	for _, s := range sections {
-		a, ok := answersBySection[s.ID]
-		if !ok {
-			continue
-		}
-
-		if isSpeakingSection(s.Name, s.Description) {
-			audioPath := ""
-			if len(a.UserAnswer) > 0 {
-				audioPath = strings.TrimSpace(a.UserAnswer[0])
-			}
-			if audioPath == "" {
-				continue
-			}
-			if transcriber == nil {
-				logger.Error("cron_transcriber_nil", "user_test_mapping_id", userTestMappingID.String())
-				continue
-			}
-
-			transcript := ""
-			if len(a.TestNotes) > 0 {
-				transcript = strings.TrimSpace(a.TestNotes[0])
-			}
-			if transcript == "" {
-				speakingNeedsTranscript = true
-				t, err := transcribeAndPersist(ctx, logger, db, transcriber, userTestMappingID, s.ID, a.ID, audioPath)
-				if err != nil {
-					continue
-				}
-				transcript = t
-				a.TestNotes = []string{transcript}
-				a.HasGraded = false
-				pendingCount++
-			}
-
-			attempt.Sections = append(attempt.Sections, ai.SectionAttempt{
-				TestSectionMappingID: s.ID,
-				SectionName:          s.Name,
-				SectionDescription:   s.Description,
-				MaxMarks:             s.MaxMarks,
-				Questions:            a.Question,
-				Answers:              []string{transcript},
-				TestNotes:            []string{transcript},
-			})
-			continue
-		}
-
-		attempt.Sections = append(attempt.Sections, ai.SectionAttempt{
-			TestSectionMappingID: s.ID,
-			SectionName:          s.Name,
-			SectionDescription:   s.Description,
-			MaxMarks:             s.MaxMarks,
-			Questions:            a.Question,
-			Answers:              a.UserAnswer,
-			TestNotes:            a.TestNotes,
-		})
-	}
-	return speakingNeedsTranscript, pendingCount
-}
-
-func transcribeAndPersist(
-	ctx context.Context,
-	logger *slog.Logger,
-	db *bun.DB,
-	transcriber *stt.WhisperCLI,
-	userTestMappingID uuid.UUID,
-	testSectionMappingID uuid.UUID,
-	userQuestionMappingID uuid.UUID,
-	audioPath string,
-) (string, error) {
-	transcribeStart := time.Now()
-	logger.Info(
-		"cron_transcribe_start",
-		"user_test_mapping_id", userTestMappingID.String(),
-		"test_section_mapping_id", testSectionMappingID.String(),
-	)
-	tctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	t, err := transcriber.Transcribe(tctx, audioPath)
-	cancel()
-	if err != nil {
-		logger.Error(
-			"cron_transcribe_error",
-			"user_test_mapping_id", userTestMappingID.String(),
-			"test_section_mapping_id", testSectionMappingID.String(),
-			"error", err.Error(),
-		)
-		return "", err
-	}
-	logger.Info(
-		"cron_transcribe_finish",
-		"user_test_mapping_id", userTestMappingID.String(),
-		"test_section_mapping_id", testSectionMappingID.String(),
-		"duration_ms", time.Since(transcribeStart).Milliseconds(),
-	)
-
-	u := usersmodel.UserQuestionMapping{
-		TestNotes:     []string{t},
-		HasGraded:     false,
-		MarksObtained: 0,
-		AIFeedback:    "",
-	}
-	u.ID = userQuestionMappingID
-	if _, err := db.NewUpdate().
-		Model(&u).
-		Column("test_notes", "has_graded", "marks_obtained", "ai_feedback").
-		WherePK().
-		Exec(ctx); err != nil {
-		logger.Error("cron_transcript_save_error", "user_question_mapping_id", userQuestionMappingID.String(), "error", err.Error())
-		return "", err
-	}
-
-	return t, nil
-}
-
 func markMappingAsInGrading(ctx context.Context, logger *slog.Logger, db *bun.DB, mapping usersmodel.UserTestMapping) {
 	if mapping.Status == userTestStatusInGrading {
 		return
@@ -503,82 +499,6 @@ func markMappingAsGraded(ctx context.Context, logger *slog.Logger, db *bun.DB, m
 	}
 }
 
-func applyGrades(
-	ctx context.Context,
-	logger *slog.Logger,
-	db *bun.DB,
-	userTestMappingID uuid.UUID,
-	sectionOrder []ai.SectionAttempt,
-	grades []ai.SectionGrade,
-	answersBySection map[uuid.UUID]usersmodel.UserQuestionMapping,
-	maxMarksBySection map[uuid.UUID]int,
-) int {
-	expectedOrder := make([]uuid.UUID, 0, len(sectionOrder))
-	for _, s := range sectionOrder {
-		expectedOrder = append(expectedOrder, s.TestSectionMappingID)
-	}
-
-	updatedRows := 0
-	for i, g := range grades {
-		sectionID, err := uuid.Parse(strings.TrimSpace(g.TestSectionMappingID))
-		if err != nil {
-			if i < len(expectedOrder) {
-				sectionID = expectedOrder[i]
-				logger.Warn(
-					"cron_ai_invalid_section_id_fallback",
-					"user_test_mapping_id", userTestMappingID.String(),
-					"test_section_mapping_id", g.TestSectionMappingID,
-					"fallback_test_section_mapping_id", sectionID.String(),
-					"error", err.Error(),
-				)
-			} else {
-				logger.Error(
-					"cron_ai_invalid_section_id",
-					"user_test_mapping_id", userTestMappingID.String(),
-					"test_section_mapping_id", g.TestSectionMappingID,
-					"error", err.Error(),
-				)
-				continue
-			}
-		}
-
-		existing, ok := answersBySection[sectionID]
-		if !ok {
-			continue
-		}
-		maxMarks, ok := maxMarksBySection[sectionID]
-		if !ok {
-			continue
-		}
-
-		marks := g.MarksObtained
-		if marks < 0 {
-			marks = 0
-		}
-		if marks > maxMarks {
-			marks = maxMarks
-		}
-
-		u := usersmodel.UserQuestionMapping{
-			MarksObtained: marks,
-			AIFeedback:    g.AIFeedback,
-			HasGraded:     true,
-		}
-		u.ID = existing.ID
-		if _, err := db.NewUpdate().
-			Model(&u).
-			Column("marks_obtained", "ai_feedback", "has_graded").
-			WherePK().
-			Exec(ctx); err != nil {
-			logger.Error("cron_grade_update_error", "user_question_mapping_id", existing.ID.String(), "error", err.Error())
-			continue
-		}
-		updatedRows++
-	}
-
-	return updatedRows
-}
-
 func listActiveSectionsByTestID(ctx context.Context, db *bun.DB, testID uuid.UUID) ([]testsmodel.TestSectionMapping, error) {
 	var sections []testsmodel.TestSectionMapping
 	if err := db.NewSelect().
@@ -599,19 +519,6 @@ func isSpeakingSection(name string, description string) bool {
 	}
 	d := strings.ToLower(strings.TrimSpace(description))
 	return strings.Contains(d, "speak")
-}
-
-func logAIDebug(ctx context.Context, logger *slog.Logger, userTestMappingID uuid.UUID, prompt string, raw string, aiLogRaw bool) {
-	if logger.Enabled(ctx, slog.LevelDebug) {
-		logger.Debug("cron_ai_prompt", "user_test_mapping_id", userTestMappingID.String(), "prompt", truncate(prompt, 8000))
-		logger.Debug("cron_ai_raw", "user_test_mapping_id", userTestMappingID.String(), "raw", truncate(raw, 8000))
-		return
-	}
-	if !aiLogRaw {
-		return
-	}
-	logger.Info("cron_ai_prompt", "user_test_mapping_id", userTestMappingID.String(), "prompt", truncate(prompt, 2000))
-	logger.Info("cron_ai_raw", "user_test_mapping_id", userTestMappingID.String(), "raw", truncate(raw, 2000))
 }
 
 func truncate(s string, max int) string {
