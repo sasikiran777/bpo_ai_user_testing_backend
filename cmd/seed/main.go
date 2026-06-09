@@ -31,12 +31,13 @@ func main() {
 	english, err := ensureTest(ctx, database, testsmodel.Test{
 		Name:        "English",
 		Code:        "english",
-		Description: "Measures real-world English communication with timed writing, comprehension, and speaking.",
+		Description: "Measures real-world English communication across reading, writing, speaking, read-aloud, and email composition tasks.",
 		Instruction: []string{
 			"You can take this test only once.",
 			"Do not refresh/close the tab or switch away. Leaving the test may mark it as failed.",
-			"Writing: 5 minutes. Reading: 5 minutes. Speaking: 3 minutes (auto-recording)",
-			"Microphone access is required for the Speaking section.",
+			"Reading: 5 minutes. Writing: 5 minutes. Speaking: 3 minutes (auto-recording).",
+			"Read Aloud: 90 seconds. Email Writing: 5 minutes.",
+			"Microphone access is required for both the Speaking and Read Aloud sections.",
 			"Your activity (tab changes / focus loss) is tracked silently during the test.",
 		},
 		IsActive: true,
@@ -59,14 +60,20 @@ func main() {
 
 	sections := []testsmodel.TestSectionMapping{
 		{TestID: english.ID, Name: "Read", Description: "Comprehension and Reading", MaxMarks: 10, MaxTime: 5, IsActive: true},
-		{TestID: english.ID, Name: "Write", Description: "Writing", MaxMarks: 10, MaxTime: 5, IsActive: true},
-		{TestID: english.ID, Name: "Speak", Description: "Speaking", MaxMarks: 10, MaxTime: 3, IsActive: true},
+		{TestID: english.ID, Name: "Write", Description: "Short-form writing response", MaxMarks: 10, MaxTime: 5, IsActive: true},
+		{TestID: english.ID, Name: "Speak", Description: "Speaking response", MaxMarks: 10, MaxTime: 3, IsActive: true},
+		{TestID: english.ID, Name: "Read Aloud", Description: "Read the passage aloud and speak clearly into the microphone within 90 seconds.", MaxMarks: 10, MaxTime: 2, IsActive: true},
+		{TestID: english.ID, Name: "Email Writing", Description: "Compose a professional email for the given workplace situation within 5 minutes.", MaxMarks: 10, MaxTime: 5, IsActive: true},
 	}
 
 	var readSectionID uuid.UUID
 	var speakSectionID uuid.UUID
+	var readAloudSectionID uuid.UUID
+	var emailWritingSectionID uuid.UUID
 	var hasRead bool
 	var hasSpeak bool
+	var hasReadAloud bool
+	var hasEmailWriting bool
 
 	for _, s := range sections {
 		sec, err := ensureTestSection(ctx, database, s)
@@ -82,14 +89,26 @@ func main() {
 			speakSectionID = sec.ID
 			hasSpeak = true
 		}
+		if sec.Name == "Read Aloud" {
+			readAloudSectionID = sec.ID
+			hasReadAloud = true
+		}
+		if sec.Name == "Email Writing" {
+			emailWritingSectionID = sec.ID
+			hasEmailWriting = true
+		}
 	}
 
-	if !hasRead || !hasSpeak {
+	if !hasRead || !hasSpeak || !hasReadAloud || !hasEmailWriting {
 		fmt.Fprintln(os.Stderr, "missing required english sections")
 		os.Exit(1)
 	}
 
 	if err := deactivateSpeakingTopics(ctx, database, speakSectionID); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	if err := deactivateSpeakingTopics(ctx, database, readAloudSectionID); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
@@ -120,6 +139,87 @@ func main() {
 	for _, topic := range speakingTopics {
 		if err := ensureSpeakingTopic(ctx, database, testsmodel.SpeakingTopic{
 			TestSectionMappingID: speakSectionID,
+			Topic:                topic,
+			IsActive:             true,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+	}
+
+	readAloudPassages := []string{
+		`Passage 1 - Remote Work
+Remote work has become increasingly common in many industries. Employees can now collaborate with colleagues from different cities and countries without leaving their homes. Video conferencing tools, project management software, and instant messaging platforms make communication easier than ever before. While remote work offers flexibility and convenience, it also requires strong time management and self-discipline. Organizations continue to explore ways to balance productivity, employee well-being, and effective teamwork in virtual environments.`,
+		`Passage 2 - Online Learning
+Online learning has transformed education by making knowledge accessible to people around the world. Students can attend lectures, complete assignments, and participate in discussions from almost any location with an internet connection. Digital learning platforms provide flexibility for individuals who need to balance education with work or family responsibilities. However, successful online learning often requires motivation, organization, and active participation. As technology improves, educational experiences are becoming more engaging and personalized.`,
+		`Passage 3 - Healthy Habits
+Developing healthy habits can significantly improve physical and mental well-being. Regular exercise helps strengthen the body, while balanced nutrition provides essential energy and nutrients. Adequate sleep supports concentration, memory, and overall health. Many experts recommend making small, consistent changes rather than attempting drastic lifestyle transformations. Over time, these positive habits can lead to increased productivity, better stress management, and a higher quality of life.`,
+		`Passage 4 - Renewable Energy
+Renewable energy sources are playing an important role in addressing global environmental challenges. Solar panels, wind turbines, and hydroelectric systems generate electricity without relying heavily on fossil fuels. These technologies help reduce greenhouse gas emissions and support long-term sustainability goals. Although renewable energy infrastructure requires significant investment, advancements in technology are making these solutions more efficient and affordable. Many countries are expanding their renewable energy programs to meet growing energy demands responsibly.`,
+		`Passage 5 - The Importance of Communication
+Effective communication is essential in both personal and professional relationships. Clear communication helps individuals share ideas, resolve misunderstandings, and build trust with others. Active listening is equally important because it allows people to understand different perspectives and respond thoughtfully. In workplaces, strong communication skills contribute to better collaboration and decision-making. Developing these skills can improve relationships and create more productive environments.`,
+		`Passage 6 - Artificial Intelligence
+Artificial intelligence is rapidly changing the way businesses and individuals solve problems. Modern AI systems can analyze data, recognize patterns, and assist with complex tasks that once required significant human effort. Organizations use artificial intelligence in areas such as healthcare, finance, customer service, and manufacturing. While these technologies offer many advantages, they also raise important questions about ethics, privacy, and accountability. Responsible development remains a key priority for researchers and policymakers.`,
+		`Passage 7 - Public Transportation
+Public transportation systems provide an efficient way for people to travel within cities and urban areas. Buses, trains, and metro networks help reduce traffic congestion and lower environmental impact by decreasing the number of private vehicles on the road. Reliable transportation also improves access to education, employment, and essential services. As cities continue to grow, investments in modern transportation infrastructure are becoming increasingly important for sustainable development.`,
+		`Passage 8 - Financial Literacy
+Understanding basic financial concepts can help individuals make informed decisions about their money. Budgeting allows people to track income and expenses, while saving provides financial security during unexpected situations. Learning about investments, interest rates, and long-term planning can support future goals such as education, home ownership, or retirement. Financial literacy empowers people to manage resources effectively and build greater economic stability over time.`,
+		`Passage 9 - Climate Change
+Climate change is one of the most significant challenges facing the modern world. Scientists continue to study its effects on weather patterns, ecosystems, and human communities. Rising temperatures, changing rainfall patterns, and extreme weather events have prompted governments and organizations to develop strategies for mitigation and adaptation. Addressing climate change requires cooperation among individuals, businesses, and policymakers to create sustainable solutions for future generations.`,
+		`Passage 10 - Innovation in Healthcare
+Advances in healthcare technology are improving patient outcomes and transforming medical practices. Doctors now have access to sophisticated diagnostic tools that help identify diseases more accurately and at earlier stages. Telemedicine services allow patients to consult healthcare professionals remotely, increasing accessibility for people in underserved areas. Continued research and innovation are expected to contribute to more effective treatments and better overall healthcare systems.`,
+		`Passage 11 - Cybersecurity
+As digital technologies become more widespread, cybersecurity has become increasingly important. Individuals and organizations store large amounts of sensitive information online, making protection against cyber threats essential. Strong passwords, multi-factor authentication, and regular software updates can reduce security risks. Cybersecurity professionals work continuously to identify vulnerabilities and defend systems against evolving threats. Awareness and education remain important components of maintaining digital safety.`,
+		`Passage 12 - Space Exploration
+Space exploration has expanded humanity's understanding of the universe and inspired scientific discovery for decades. Satellites support communication, navigation, and weather forecasting, while research missions provide valuable information about planets and distant celestial objects. Advances in technology are enabling more ambitious projects, including plans for future missions beyond Earth's orbit. Exploration continues to drive innovation and encourage international collaboration in science and engineering.`,
+		`Passage 13 - Leadership
+Leadership involves guiding individuals or teams toward shared goals while encouraging growth and collaboration. Effective leaders communicate clearly, make informed decisions, and demonstrate integrity in their actions. They also recognize the strengths of others and create opportunities for development. Strong leadership can improve team performance, foster innovation, and help organizations adapt to changing circumstances. These qualities are valuable in both professional and community settings.`,
+		`Passage 14 - The Future of Work
+The future of work is being shaped by technological advancements, changing economic conditions, and evolving workforce expectations. Automation and artificial intelligence are transforming many industries by improving efficiency and creating new opportunities. At the same time, employees increasingly value flexibility, continuous learning, and meaningful work experiences. Organizations must adapt to these changes by investing in skills development and fostering cultures of innovation and inclusion.`,
+		`Passage 15 - Scientific Research
+Scientific research plays a critical role in expanding knowledge and solving complex problems. Researchers conduct experiments, analyze data, and test hypotheses to better understand natural phenomena and human behavior. Discoveries in science have contributed to improvements in medicine, agriculture, transportation, and technology. The research process requires curiosity, critical thinking, and careful evaluation of evidence. Continued investment in scientific inquiry supports progress and innovation across many fields.`,
+	}
+
+	for _, passage := range readAloudPassages {
+		if err := ensureSpeakingTopic(ctx, database, testsmodel.SpeakingTopic{
+			TestSectionMappingID: readAloudSectionID,
+			Topic:                passage,
+			IsActive:             true,
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+	}
+
+	if err := deactivateWritingTopics(ctx, database, emailWritingSectionID); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+
+	writingTopics := []string{
+		"Your manager asks you to send an email requesting one day of leave for a personal appointment. Write the email.",
+		"You interviewed for a customer support role yesterday. Write a follow-up email thanking the interviewer and expressing interest.",
+		"A client has not received the weekly project update. Write an email apologizing for the delay and sharing the next steps.",
+		"You cannot attend tomorrow's meeting at the scheduled time. Write an email requesting to reschedule it.",
+		"Your office laptop keeps restarting during work. Write an email to IT support describing the issue and asking for help.",
+		"Your team completed a product demo for a potential client. Write a thank-you email summarizing the discussion and next actions.",
+		"You need two extra days to finish an assigned task. Write an email to your manager requesting a deadline extension with reasons.",
+		"A customer complained that they were charged twice. Write an email acknowledging the issue and explaining how it will be resolved.",
+		"Your department is organizing a mandatory training session next week. Write an email inviting the team and sharing the details.",
+		"You want to buy office chairs from a vendor. Write an email requesting a quotation, delivery timeline, and payment terms.",
+		"A job candidate has been shortlisted for an interview. Write an email inviting them and sharing the interview date, time, and location.",
+		"Your team is facing a recurring system outage that affects customers. Write an escalation email to the engineering lead.",
+		"A supplier informed you that an order will be delayed. Write an email informing the client about the delay and revised delivery date.",
+		"You are going on leave and need a colleague to handle your tasks. Write an email sharing the handover details.",
+		"You need to work from home for one day because of a family emergency. Write an email informing your manager professionally.",
+		"At the end of the week, your manager asks for a status summary. Write an email highlighting completed tasks, pending items, and blockers.",
+		"You have been invited to a meeting that conflicts with another priority. Write a polite email declining it and suggesting another slot.",
+		"A new employee is joining your team on Monday. Write a welcome email introducing the team and first-day expectations.",
+	}
+
+	for _, topic := range writingTopics {
+		if err := ensureWritingTopic(ctx, database, testsmodel.WritingTopic{
+			TestSectionMappingID: emailWritingSectionID,
 			Topic:                topic,
 			IsActive:             true,
 		}); err != nil {
@@ -313,6 +413,17 @@ func ensureTest(ctx context.Context, db *bun.DB, test testsmodel.Test) (*testsmo
 		Where("code = ?", test.Code).
 		Limit(1).
 		Scan(ctx); err == nil {
+		existing.Name = test.Name
+		existing.Description = test.Description
+		existing.Instruction = test.Instruction
+		existing.IsActive = test.IsActive
+		if _, err := db.NewUpdate().
+			Model(&existing).
+			Column("name", "description", "instruction", "is_active").
+			WherePK().
+			Exec(ctx); err != nil {
+			return nil, err
+		}
 		return &existing, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -336,6 +447,17 @@ func ensureTestSection(ctx context.Context, db *bun.DB, s testsmodel.TestSection
 		Where("name = ?", s.Name).
 		Limit(1).
 		Scan(ctx); err == nil {
+		existing.Description = s.Description
+		existing.MaxMarks = s.MaxMarks
+		existing.MaxTime = s.MaxTime
+		existing.IsActive = s.IsActive
+		if _, err := db.NewUpdate().
+			Model(&existing).
+			Column("description", "max_marks", "max_time", "is_active").
+			WherePK().
+			Exec(ctx); err != nil {
+			return nil, err
+		}
 		return &existing, nil
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -376,6 +498,39 @@ func ensureSpeakingTopic(ctx context.Context, db *bun.DB, t testsmodel.SpeakingT
 func deactivateSpeakingTopics(ctx context.Context, db *bun.DB, sectionID uuid.UUID) error {
 	_, err := db.NewUpdate().
 		Model((*testsmodel.SpeakingTopic)(nil)).
+		Set("is_active = false").
+		Where("test_section_mapping_id = ?", sectionID).
+		Exec(ctx)
+	return err
+}
+
+func ensureWritingTopic(ctx context.Context, db *bun.DB, t testsmodel.WritingTopic) error {
+	var existing testsmodel.WritingTopic
+	if err := db.NewSelect().
+		Model(&existing).
+		Where("test_section_mapping_id = ?", t.TestSectionMappingID).
+		Where("topic = ?", t.Topic).
+		Limit(1).
+		Scan(ctx); err == nil {
+		if existing.IsActive {
+			return nil
+		}
+		_, err := db.NewUpdate().
+			Model(&existing).
+			Set("is_active = true").
+			WherePK().
+			Exec(ctx)
+		return err
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	_, err := db.NewInsert().Model(&t).Exec(ctx)
+	return err
+}
+
+func deactivateWritingTopics(ctx context.Context, db *bun.DB, sectionID uuid.UUID) error {
+	_, err := db.NewUpdate().
+		Model((*testsmodel.WritingTopic)(nil)).
 		Set("is_active = false").
 		Where("test_section_mapping_id = ?", sectionID).
 		Exec(ctx)

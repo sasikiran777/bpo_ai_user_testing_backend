@@ -29,10 +29,10 @@ def _get_model() -> str:
 
 def _is_speaking_section(name: str, description: str) -> bool:
     n = (name or "").strip().lower()
-    if n in {"speak", "speaking"}:
+    if n in {"speak", "speaking"} or "read aloud" in n:
         return True
     d = (description or "").strip().lower()
-    return "speak" in d
+    return "speak" in d or "read aloud" in d
 
 
 def _clamp_marks(v: int, max_marks: int) -> int:

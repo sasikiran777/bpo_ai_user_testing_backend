@@ -417,6 +417,27 @@ func (h *Handler) GetRandomSpeakingTopic(c *gin.Context) {
 	helpers.Success(c, http.StatusOK, "Speaking topic fetched successfully", dto.ToSpeakingTopicResponse(*topic))
 }
 
+func (h *Handler) GetRandomWritingTopic(c *gin.Context) {
+	sectionIDRaw := c.Param("sectionId")
+	sectionID, err := uuid.Parse(sectionIDRaw)
+	if err != nil {
+		helpers.Error(c, http.StatusBadRequest, "Invalid section id")
+		return
+	}
+
+	topic, err := h.Service.GetRandomWritingTopic(c.Request.Context(), sectionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			helpers.Error(c, http.StatusNotFound, "No writing topic found")
+			return
+		}
+		helpers.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	helpers.Success(c, http.StatusOK, "Writing topic fetched successfully", dto.ToWritingTopicResponse(*topic))
+}
+
 func (h *Handler) GetRandomReadingComprehension(c *gin.Context) {
 	sectionIDRaw := c.Param("sectionId")
 	sectionID, err := uuid.Parse(sectionIDRaw)

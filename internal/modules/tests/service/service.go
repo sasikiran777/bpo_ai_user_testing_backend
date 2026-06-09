@@ -251,6 +251,13 @@ func (s *Service) GetRandomSpeakingTopic(
 	return s.repo.GetRandomSpeakingTopic(ctx, sectionID)
 }
 
+func (s *Service) GetRandomWritingTopic(
+	ctx context.Context,
+	sectionID uuid.UUID,
+) (*model.WritingTopic, error) {
+	return s.repo.GetRandomWritingTopic(ctx, sectionID)
+}
+
 func (s *Service) GetRandomReadingComprehension(
 	ctx context.Context,
 	sectionID uuid.UUID,

@@ -45,6 +45,20 @@ func (r *Repository) GetRandomSpeakingTopic(ctx context.Context, sectionID uuid.
 	return &t, nil
 }
 
+func (r *Repository) GetRandomWritingTopic(ctx context.Context, sectionID uuid.UUID) (*model.WritingTopic, error) {
+	var t model.WritingTopic
+	if err := r.db.NewSelect().
+		Model(&t).
+		Where("test_section_mapping_id = ?", sectionID).
+		Where("is_active = true").
+		OrderExpr("random()").
+		Limit(1).
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 func (r *Repository) GetRandomReadingComprehension(ctx context.Context, sectionID uuid.UUID) (*model.ReadingComprehension, error) {
 	var rc model.ReadingComprehension
 	if err := r.db.NewSelect().

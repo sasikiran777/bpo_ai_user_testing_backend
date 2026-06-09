@@ -17,6 +17,7 @@ func RegisterTestRoutes(r *gin.RouterGroup, h *handler.Handler) {
 	r.GET("/my-tests/:testId", h.GetUserTestStatus)
 	r.PATCH("/my-tests/:userTestMappingId/drop", h.DropUserTest)
 	r.GET("/sections/:sectionId/speaking-topic", h.GetRandomSpeakingTopic)
+	r.GET("/sections/:sectionId/writing-topic", h.GetRandomWritingTopic)
 	r.GET("/sections/:sectionId/reading", h.GetRandomReadingComprehension)
 	r.GET("/:testId", h.GetSectionsByTestID)
 }

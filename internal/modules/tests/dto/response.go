@@ -68,6 +68,12 @@ type SpeakingTopicResponse struct {
 	Topic                string    `json:"topic"`
 }
 
+type WritingTopicResponse struct {
+	ID                   uuid.UUID `json:"id"`
+	TestSectionMappingID uuid.UUID `json:"test_section_mapping_id"`
+	Topic                string    `json:"topic"`
+}
+
 type ReadingComprehensionResponse struct {
 	ID                   uuid.UUID       `json:"id"`
 	TestSectionMappingID uuid.UUID       `json:"test_section_mapping_id"`
@@ -187,6 +193,14 @@ func ToUserTestMappingResponse(m usersmodel.UserTestMapping) UserTestMappingResp
 
 func ToSpeakingTopicResponse(t testsmodel.SpeakingTopic) SpeakingTopicResponse {
 	return SpeakingTopicResponse{
+		ID:                   t.ID,
+		TestSectionMappingID: t.TestSectionMappingID,
+		Topic:                t.Topic,
+	}
+}
+
+func ToWritingTopicResponse(t testsmodel.WritingTopic) WritingTopicResponse {
+	return WritingTopicResponse{
 		ID:                   t.ID,
 		TestSectionMappingID: t.TestSectionMappingID,
 		Topic:                t.Topic,

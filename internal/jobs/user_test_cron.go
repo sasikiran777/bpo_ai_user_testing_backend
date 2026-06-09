@@ -514,11 +514,11 @@ func listActiveSectionsByTestID(ctx context.Context, db *bun.DB, testID uuid.UUI
 
 func isSpeakingSection(name string, description string) bool {
 	n := strings.ToLower(strings.TrimSpace(name))
-	if n == "speak" || n == "speaking" {
+	if n == "speak" || n == "speaking" || strings.Contains(n, "read aloud") {
 		return true
 	}
 	d := strings.ToLower(strings.TrimSpace(description))
-	return strings.Contains(d, "speak")
+	return strings.Contains(d, "speak") || strings.Contains(d, "read aloud")
 }
 
 func truncate(s string, max int) string {
