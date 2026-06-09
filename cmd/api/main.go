@@ -15,14 +15,13 @@ import (
 	"ai_testing/internal/jobs"
 	"ai_testing/internal/log"
 
-	"github.com/bytedance/gopkg/util/logger"
 	"github.com/uptrace/bun"
 )
 
 func main() {
-	logger.Info("server_start")
 	cfg := config.Load()
 	logger := log.New(cfg)
+	logger.Info("server_start")
 	db := mustDB(&cfg)
 
 	router := apihttp.NewRouter(logger, db, &cfg)
