@@ -16,7 +16,7 @@ import (
 func NewRouter(logger *slog.Logger, db *bun.DB, cfg *config.Config) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(middleware.CORS([]string{"http://localhost:3500"}))
+	r.Use(middleware.CORS([]string{"http://localhost:3500", "https://assess.bposolutionsgroup.com"}))
 	r.Use(middleware.RequestID())
 	r.Use(middleware.RequestLogger(logger))
 
