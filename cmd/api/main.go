@@ -21,7 +21,6 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := log.New(cfg)
-	logger.Info("server_start")
 	db := mustDB(&cfg)
 
 	router := apihttp.NewRouter(logger, db, &cfg)
