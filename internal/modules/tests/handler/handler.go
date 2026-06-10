@@ -3,6 +3,7 @@ package handler
 import (
 	"database/sql"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,17 +13,19 @@ import (
 	"ai_testing/internal/modules/tests/dto"
 	"ai_testing/internal/modules/tests/service"
 	"ai_testing/internal/shared/helpers"
+	"ai_testing/internal/storage"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 type Handler struct {
-	Service *service.Service
+	Service    *service.Service
+	AudioStore *storage.AudioStore
 }
 
-func New(service *service.Service) *Handler {
-	return &Handler{Service: service}
+func New(service *service.Service, audioStore *storage.AudioStore) *Handler {
+	return &Handler{Service: service, AudioStore: audioStore}
 }
 
 func getUserID(c *gin.Context) (uuid.UUID, bool) {
@@ -201,7 +204,7 @@ func (h *Handler) GetUserTestAudio(c *gin.Context) {
 		return
 	}
 
-	absPath, err := h.Service.GetUserAudioFilePath(c.Request.Context(), userID, mappingID, sectionID)
+	resolved, err := h.Service.GetUserAudio(c.Request.Context(), userID, mappingID, sectionID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, os.ErrNotExist) {
 			helpers.Error(c, http.StatusNotFound, "Audio not found")
@@ -211,7 +214,21 @@ func (h *Handler) GetUserTestAudio(c *gin.Context) {
 		return
 	}
 
-	c.File(absPath)
+	reader, contentType, err := h.AudioStore.Open(c.Request.Context(), resolved)
+	if err != nil {
+		helpers.Error(c, http.StatusInternalServerError, "failed to open audio file")
+		return
+	}
+	defer reader.Close()
+
+	if contentType != "" {
+		c.Header("Content-Type", contentType)
+	}
+	if resolved.FileName != "" {
+		c.Header("Content-Disposition", "inline; filename=\""+resolved.FileName+"\"")
+	}
+	c.Status(http.StatusOK)
+	_, _ = io.Copy(c.Writer, reader)
 }
 
 func (h *Handler) SaveAnswers(c *gin.Context) {
@@ -323,27 +340,12 @@ func (h *Handler) SaveAudioAnswer(c *gin.Context) {
 		return
 	}
 
-	fileName := uuid.NewString() + ext
-	relPath := filepath.Join(
-		"storage",
-		"audio",
-		userID.String(),
-		userTestMappingID.String(),
-		sectionID.String(),
-		fileName,
-	)
-	absDir := filepath.Dir(relPath)
-	if err = os.MkdirAll(absDir, 0o755); err != nil {
-		helpers.Error(c, http.StatusInternalServerError, "failed to create upload directory")
-		return
-	}
-
-	if err = c.SaveUploadedFile(file, relPath); err != nil {
+	audioPath, err := h.AudioStore.Save(c.Request.Context(), file, userID, userTestMappingID, sectionID)
+	if err != nil {
 		helpers.Error(c, http.StatusInternalServerError, "failed to save audio file")
 		return
 	}
 
-	audioPath := filepath.ToSlash(relPath)
 	row, err := h.Service.SaveAudioAnswer(
 		c.Request.Context(),
 		userID,
@@ -354,7 +356,7 @@ func (h *Handler) SaveAudioAnswer(c *gin.Context) {
 		audioPath,
 	)
 	if err != nil {
-		_ = os.Remove(relPath)
+		_ = h.AudioStore.Delete(c.Request.Context(), audioPath)
 		if errors.Is(err, sql.ErrNoRows) {
 			helpers.Error(c, http.StatusNotFound, "Not found")
 			return

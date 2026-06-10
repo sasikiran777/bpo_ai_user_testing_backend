@@ -40,5 +40,5 @@ func RegisterPubPublicRoutes(r *gin.RouterGroup, db *bun.DB, cfg *config.Config)
 }
 
 func RegisterProtectedRoutes(r *gin.RouterGroup, db *bun.DB, cfg *config.Config) {
-	testsbootstrap.Register(r.Group("/tests"), db)
+	testsbootstrap.Register(r.Group("/tests"), db, cfg)
 }
