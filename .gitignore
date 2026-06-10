@@ -9,3 +9,4 @@ models/*.bin
 services/grader/.venv/
 services/grader/__pycache__/
 services/grader/.python-version
+__pycache__/
