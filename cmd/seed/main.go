@@ -35,8 +35,11 @@ func main() {
 		Instruction: []string{
 			"You can take this test only once.",
 			"Do not refresh/close the tab or switch away. Leaving the test may mark it as failed.",
-			"Reading: 5 minutes. Writing: 5 minutes. Speaking: 3 minutes (auto-recording).",
-			"Read Aloud: 90 seconds. Email Writing: 5 minutes.",
+			"Reading: 5 minutes.",
+			"Writing: 5 minutes.",
+			"Speaking: 3 minutes (auto-recording).",
+			"Read Aloud: 90 seconds.",
+			"Email Writing: 5 minutes.",
 			"Microphone access is required for both the Speaking and Read Aloud sections.",
 			"Your activity (tab changes / focus loss) is tracked silently during the test.",
 		},
@@ -148,35 +151,35 @@ func main() {
 	}
 
 	readAloudPassages := []string{
-		`Passage 1 - Remote Work
+		`Remote Work
 Remote work has become increasingly common in many industries. Employees can now collaborate with colleagues from different cities and countries without leaving their homes. Video conferencing tools, project management software, and instant messaging platforms make communication easier than ever before. While remote work offers flexibility and convenience, it also requires strong time management and self-discipline. Organizations continue to explore ways to balance productivity, employee well-being, and effective teamwork in virtual environments.`,
-		`Passage 2 - Online Learning
+		`Online Learning
 Online learning has transformed education by making knowledge accessible to people around the world. Students can attend lectures, complete assignments, and participate in discussions from almost any location with an internet connection. Digital learning platforms provide flexibility for individuals who need to balance education with work or family responsibilities. However, successful online learning often requires motivation, organization, and active participation. As technology improves, educational experiences are becoming more engaging and personalized.`,
-		`Passage 3 - Healthy Habits
+		`Healthy Habits
 Developing healthy habits can significantly improve physical and mental well-being. Regular exercise helps strengthen the body, while balanced nutrition provides essential energy and nutrients. Adequate sleep supports concentration, memory, and overall health. Many experts recommend making small, consistent changes rather than attempting drastic lifestyle transformations. Over time, these positive habits can lead to increased productivity, better stress management, and a higher quality of life.`,
-		`Passage 4 - Renewable Energy
+		`Renewable Energy
 Renewable energy sources are playing an important role in addressing global environmental challenges. Solar panels, wind turbines, and hydroelectric systems generate electricity without relying heavily on fossil fuels. These technologies help reduce greenhouse gas emissions and support long-term sustainability goals. Although renewable energy infrastructure requires significant investment, advancements in technology are making these solutions more efficient and affordable. Many countries are expanding their renewable energy programs to meet growing energy demands responsibly.`,
-		`Passage 5 - The Importance of Communication
+		`The Importance of Communication
 Effective communication is essential in both personal and professional relationships. Clear communication helps individuals share ideas, resolve misunderstandings, and build trust with others. Active listening is equally important because it allows people to understand different perspectives and respond thoughtfully. In workplaces, strong communication skills contribute to better collaboration and decision-making. Developing these skills can improve relationships and create more productive environments.`,
-		`Passage 6 - Artificial Intelligence
+		`Artificial Intelligence
 Artificial intelligence is rapidly changing the way businesses and individuals solve problems. Modern AI systems can analyze data, recognize patterns, and assist with complex tasks that once required significant human effort. Organizations use artificial intelligence in areas such as healthcare, finance, customer service, and manufacturing. While these technologies offer many advantages, they also raise important questions about ethics, privacy, and accountability. Responsible development remains a key priority for researchers and policymakers.`,
-		`Passage 7 - Public Transportation
+		`Public Transportation
 Public transportation systems provide an efficient way for people to travel within cities and urban areas. Buses, trains, and metro networks help reduce traffic congestion and lower environmental impact by decreasing the number of private vehicles on the road. Reliable transportation also improves access to education, employment, and essential services. As cities continue to grow, investments in modern transportation infrastructure are becoming increasingly important for sustainable development.`,
-		`Passage 8 - Financial Literacy
+		`Financial Literacy
 Understanding basic financial concepts can help individuals make informed decisions about their money. Budgeting allows people to track income and expenses, while saving provides financial security during unexpected situations. Learning about investments, interest rates, and long-term planning can support future goals such as education, home ownership, or retirement. Financial literacy empowers people to manage resources effectively and build greater economic stability over time.`,
-		`Passage 9 - Climate Change
+		`Climate Change
 Climate change is one of the most significant challenges facing the modern world. Scientists continue to study its effects on weather patterns, ecosystems, and human communities. Rising temperatures, changing rainfall patterns, and extreme weather events have prompted governments and organizations to develop strategies for mitigation and adaptation. Addressing climate change requires cooperation among individuals, businesses, and policymakers to create sustainable solutions for future generations.`,
-		`Passage 10 - Innovation in Healthcare
+		`Innovation in Healthcare
 Advances in healthcare technology are improving patient outcomes and transforming medical practices. Doctors now have access to sophisticated diagnostic tools that help identify diseases more accurately and at earlier stages. Telemedicine services allow patients to consult healthcare professionals remotely, increasing accessibility for people in underserved areas. Continued research and innovation are expected to contribute to more effective treatments and better overall healthcare systems.`,
-		`Passage 11 - Cybersecurity
+		`Cybersecurity
 As digital technologies become more widespread, cybersecurity has become increasingly important. Individuals and organizations store large amounts of sensitive information online, making protection against cyber threats essential. Strong passwords, multi-factor authentication, and regular software updates can reduce security risks. Cybersecurity professionals work continuously to identify vulnerabilities and defend systems against evolving threats. Awareness and education remain important components of maintaining digital safety.`,
-		`Passage 12 - Space Exploration
+		`Space Exploration
 Space exploration has expanded humanity's understanding of the universe and inspired scientific discovery for decades. Satellites support communication, navigation, and weather forecasting, while research missions provide valuable information about planets and distant celestial objects. Advances in technology are enabling more ambitious projects, including plans for future missions beyond Earth's orbit. Exploration continues to drive innovation and encourage international collaboration in science and engineering.`,
-		`Passage 13 - Leadership
+		`Leadership
 Leadership involves guiding individuals or teams toward shared goals while encouraging growth and collaboration. Effective leaders communicate clearly, make informed decisions, and demonstrate integrity in their actions. They also recognize the strengths of others and create opportunities for development. Strong leadership can improve team performance, foster innovation, and help organizations adapt to changing circumstances. These qualities are valuable in both professional and community settings.`,
-		`Passage 14 - The Future of Work
+		`The Future of Work
 The future of work is being shaped by technological advancements, changing economic conditions, and evolving workforce expectations. Automation and artificial intelligence are transforming many industries by improving efficiency and creating new opportunities. At the same time, employees increasingly value flexibility, continuous learning, and meaningful work experiences. Organizations must adapt to these changes by investing in skills development and fostering cultures of innovation and inclusion.`,
-		`Passage 15 - Scientific Research
+		`Scientific Research
 Scientific research plays a critical role in expanding knowledge and solving complex problems. Researchers conduct experiments, analyze data, and test hypotheses to better understand natural phenomena and human behavior. Discoveries in science have contributed to improvements in medicine, agriculture, transportation, and technology. The research process requires curiosity, critical thinking, and careful evaluation of evidence. Continued investment in scientific inquiry supports progress and innovation across many fields.`,
 	}
 
