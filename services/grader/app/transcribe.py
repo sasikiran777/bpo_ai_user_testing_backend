@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -11,6 +13,7 @@ from faster_whisper import WhisperModel
 
 _MODEL: Optional[WhisperModel] = None
 _S3_CLIENT = None
+logger = logging.getLogger("grader.transcribe")
 
 
 def _get_model() -> WhisperModel:
@@ -20,7 +23,15 @@ def _get_model() -> WhisperModel:
     model_name = os.getenv("WHISPER_MODEL", "small")
     device = os.getenv("WHISPER_DEVICE", "cpu")
     compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+    start = time.perf_counter()
+    logger.info(
+        "whisper_model_load_start model=%s device=%s compute_type=%s",
+        model_name,
+        device,
+        compute_type,
+    )
     _MODEL = WhisperModel(model_name, device=device, compute_type=compute_type)
+    logger.info("whisper_model_load_finish duration_ms=%s", int((time.perf_counter() - start) * 1000))
     return _MODEL
 
 
@@ -56,7 +67,15 @@ def _download_s3_audio(p: str) -> Path:
     os.close(fd)
 
     try:
+        start = time.perf_counter()
+        logger.info("s3_audio_download_start bucket=%s key=%s", bucket, key)
         _get_s3_client().download_file(bucket, key, tmp_path)
+        logger.info(
+            "s3_audio_download_finish bucket=%s key=%s duration_ms=%s",
+            bucket,
+            key,
+            int((time.perf_counter() - start) * 1000),
+        )
     except Exception:
         try:
             os.remove(tmp_path)
@@ -73,6 +92,8 @@ def transcribe_audio(audio_path: str) -> str:
 
     full = _download_s3_audio(audio_path)
     model = _get_model()
+    start = time.perf_counter()
+    logger.info("transcribe_start audio_path=%s temp_path=%s", audio_path, full)
     try:
         segments, _ = model.transcribe(str(full), vad_filter=True)
         text_parts = []
@@ -80,7 +101,21 @@ def transcribe_audio(audio_path: str) -> str:
             t = (s.text or "").strip()
             if t:
                 text_parts.append(t)
-        return " ".join(text_parts).strip()
+        text = " ".join(text_parts).strip()
+        logger.info(
+            "transcribe_finish audio_path=%s duration_ms=%s transcript_chars=%s",
+            audio_path,
+            int((time.perf_counter() - start) * 1000),
+            len(text),
+        )
+        return text
+    except Exception:
+        logger.exception(
+            "transcribe_error audio_path=%s duration_ms=%s",
+            audio_path,
+            int((time.perf_counter() - start) * 1000),
+        )
+        raise
     finally:
         try:
             full.unlink(missing_ok=True)

@@ -47,7 +47,7 @@ func Load() Config {
 		UserTestCronEnabled:  getEnvBool("USER_TEST_CRON_ENABLED", true),
 		GraderURL:            getEnv("GRADER_URL", "http://localhost:8000"),
 		GraderToken:          getEnv("GRADER_TOKEN", ""),
-		GraderTimeoutSec:     getEnvInt("GRADER_TIMEOUT_SECONDS", 180),
+		GraderTimeoutSec:     getEnvInt("GRADER_TIMEOUT_SECONDS", 300),
 		AWSS3Region:          getEnv("AWS_S3_REGION", ""),
 		AWSS3Bucket:          getEnv("AWS_S3_BUCKET", ""),
 		AWSS3AccessKeyID:     getEnv("AWS_S3_ACCESS_KEY_ID", ""),
