@@ -179,6 +179,25 @@ func gradeOneMapping(
 
 	aiStart := time.Now()
 	markMappingAsInGrading(ctx, logger, db, mapping)
+	healthStart := time.Now()
+	logger.Info("cron_py_grader_health_start", "user_test_mapping_id", mapping.ID.String())
+	hctx, hcancel := context.WithTimeout(ctx, 5*time.Second)
+	healthErr := pyClient.Health(hctx)
+	hcancel()
+	if healthErr != nil {
+		logger.Error(
+			"cron_py_grader_health_error",
+			"user_test_mapping_id", mapping.ID.String(),
+			"duration_ms", time.Since(healthStart).Milliseconds(),
+			"error", healthErr.Error(),
+		)
+		return 0, false
+	}
+	logger.Info(
+		"cron_py_grader_health_finish",
+		"user_test_mapping_id", mapping.ID.String(),
+		"duration_ms", time.Since(healthStart).Milliseconds(),
+	)
 	logger.Info("cron_py_grader_call_start", "user_test_mapping_id", mapping.ID.String())
 	actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	out, raw, err := pyClient.Grade(actx, pyReq)

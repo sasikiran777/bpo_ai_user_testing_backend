@@ -60,6 +60,31 @@ func NewPyGraderClient(baseURL string, token string, timeoutSec int) *PyGraderCl
 	}
 }
 
+func (c *PyGraderClient) Health(ctx context.Context) error {
+	if c == nil || c.HTTP == nil {
+		return errors.New("grader client not initialized")
+	}
+	if c.BaseURL == "" {
+		return errors.New("grader url is empty")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/health", nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return errors.New("grader health request failed")
+	}
+	return nil
+}
+
 func (c *PyGraderClient) Grade(ctx context.Context, payload PyGradeRequest) (*PyGradeResponse, string, error) {
 	if c == nil || c.HTTP == nil {
 		return nil, "", errors.New("grader client not initialized")
