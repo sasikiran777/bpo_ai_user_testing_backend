@@ -8,32 +8,27 @@ type LoginRequest struct {
 }
 
 type RegisterRequest struct {
-	FirstName      string   `json:"first_name" binding:"required"`
-	LastName       string   `json:"last_name" binding:"required"`
-	Phone          string   `json:"phone" binding:"required"`
-	Email          string   `json:"email" binding:"required,email"`
-	Password       string   `json:"password" binding:"required,min=6"`
-	TotalExpMonths int      `json:"total_exp_months" binding:"required,min=0"`
-	Skills         []string `json:"skills" binding:"required,min=1"`
-	PastJobTitle   string   `json:"past_job_title"`
-	Company        string   `json:"company"`
+	FirstName             string `json:"first_name" binding:"required"`
+	MiddleName            string `json:"middle_name"`
+	LastName              string `json:"last_name" binding:"required"`
+	CountryCode           string `json:"country_code" binding:"required"`
+	Phone                 string `json:"phone" binding:"required"`
+	Email                 string `json:"email" binding:"required,email"`
+	Password              string `json:"password" binding:"required,min=6"`
+	TypeOfPositionDesired string `json:"type_of_position_desired" binding:"required"`
+	ExpInMonths           int    `json:"exp_in_months" binding:"required,min=0"`
 }
 
 func (r *RegisterRequest) ToUserModel() *model.User {
 	return &model.User{
-		Email:     r.Email,
-		Password:  r.Password,
-		FirstName: r.FirstName,
-		LastName:  r.LastName,
-	}
-}
-
-func (r *RegisterRequest) ToUserProfileModel() *model.UserProfile {
-	return &model.UserProfile{
-		UserID:         r.ToUserModel().ID,
-		TotalExpMonths: r.TotalExpMonths,
-		Skills:         r.Skills,
-		PastJobTitle:   r.PastJobTitle,
-		Company:        r.Company,
+		FirstName:             r.FirstName,
+		MiddleName:            r.MiddleName,
+		LastName:              r.LastName,
+		CountryCode:           r.CountryCode,
+		Phone:                 r.Phone,
+		Email:                 r.Email,
+		Password:              r.Password,
+		TypeOfPositionDesired: r.TypeOfPositionDesired,
+		ExpInMonths:           r.ExpInMonths,
 	}
 }

@@ -98,7 +98,6 @@ go run ./cmd/migrate status
 Current tables created by migrations:
 
 - `users`
-- `user_profiles` (1:1 with `users` via `user_id`, `skills` stored as `jsonb`, experience stored as `total_exp_months`)
 
 ## Configuration
 

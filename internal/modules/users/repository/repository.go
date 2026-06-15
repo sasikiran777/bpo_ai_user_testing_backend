@@ -32,10 +32,3 @@ func (r *Repository) Register(ctx context.Context, user *model.User) (*model.Use
 	}
 	return user, nil
 }
-
-func (r *Repository) RegisterUserProfile(ctx context.Context, userProfile *model.UserProfile) error {
-	if _, err := r.db.NewInsert().Model(userProfile).Exec(ctx); err != nil {
-		return err
-	}
-	return nil
-}

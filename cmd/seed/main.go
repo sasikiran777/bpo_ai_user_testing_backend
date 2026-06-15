@@ -35,11 +35,11 @@ func main() {
 		Instruction: []string{
 			"You can take this test only once.",
 			"Do not refresh/close the tab or switch away. Leaving the test may mark it as failed.",
-			"Reading: 5 minutes.",
-			"Writing: 5 minutes.",
-			"Speaking: 3 minutes (auto-recording).",
-			"Read Aloud: 90 seconds.",
-			"Email Writing: 5 minutes.",
+			"Reading: 2 minutes.",
+			"Writing: 2 minutes.",
+			"Speaking: 1 minute (auto-recording).",
+			"Read Aloud: 1 minute.",
+			"Email Writing: 2 minutes.",
 			"Microphone access is required for both the Speaking and Read Aloud sections.",
 			"Your activity (tab changes / focus loss) is tracked silently during the test.",
 		},
@@ -62,11 +62,11 @@ func main() {
 	}
 
 	sections := []testsmodel.TestSectionMapping{
-		{TestID: english.ID, Name: "Read", Description: "Comprehension and Reading", MaxMarks: 10, MaxTime: 5, IsActive: true},
-		{TestID: english.ID, Name: "Write", Description: "Short-form writing response", MaxMarks: 10, MaxTime: 5, IsActive: true},
-		{TestID: english.ID, Name: "Speak", Description: "Speaking response", MaxMarks: 10, MaxTime: 3, IsActive: true},
-		{TestID: english.ID, Name: "Read Aloud", Description: "Read the passage aloud and speak clearly into the microphone within 90 seconds.", MaxMarks: 10, MaxTime: 2, IsActive: true},
-		{TestID: english.ID, Name: "Email Writing", Description: "Compose a professional email for the given workplace situation within 5 minutes.", MaxMarks: 10, MaxTime: 5, IsActive: true},
+		{TestID: english.ID, Name: "Read", Description: "Comprehension and Reading", MaxMarks: 10, MaxTime: 2, IsActive: true},
+		{TestID: english.ID, Name: "Write", Description: "Short-form writing response", MaxMarks: 10, MaxTime: 2, IsActive: true},
+		{TestID: english.ID, Name: "Speak", Description: "Speaking response", MaxMarks: 10, MaxTime: 1, IsActive: true},
+		{TestID: english.ID, Name: "Read Aloud", Description: "Read the passage aloud and speak clearly into the microphone within 1 minute.", MaxMarks: 10, MaxTime: 1, IsActive: true},
+		{TestID: english.ID, Name: "Email Writing", Description: "Compose a professional email for the given workplace situation within 2 minutes.", MaxMarks: 10, MaxTime: 2, IsActive: true},
 	}
 
 	var readSectionID uuid.UUID

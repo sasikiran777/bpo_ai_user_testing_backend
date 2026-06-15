@@ -58,13 +58,6 @@ func (s *AuthService) Register(
 	if err != nil {
 		return nil, err
 	}
-
-	userProfile := payload.ToUserProfileModel()
-	userProfile.UserID = user.ID
-
-	if err = s.userRepo.RegisterUserProfile(ctx, userProfile); err != nil {
-		return nil, err
-	}
 	token, err := utils.GenerateToken(user.Email)
 	if err != nil {
 		return nil, err
