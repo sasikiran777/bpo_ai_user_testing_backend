@@ -34,6 +34,10 @@ func StartUserTestMappingCron(ctx context.Context, logger *slog.Logger, db *bun.
 	}
 
 	pyClient := ai.NewPyGraderClient(cfg.GraderURL, cfg.GraderToken, cfg.GraderTimeoutSec)
+	graderTimeout := time.Duration(cfg.GraderTimeoutSec) * time.Second
+	if graderTimeout <= 0 {
+		graderTimeout = 5 * time.Minute
+	}
 
 	intervalSeconds := cfg.UserTestCronSeconds
 	if intervalSeconds <= 0 {
@@ -52,7 +56,7 @@ func StartUserTestMappingCron(ctx context.Context, logger *slog.Logger, db *bun.
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				runCronTick(ctx, logger, db, pyClient, cfg.AILogRaw)
+				runCronTick(ctx, logger, db, pyClient, cfg.AILogRaw, graderTimeout)
 			}
 		}
 	}()
@@ -64,11 +68,12 @@ func runCronTick(
 	db *bun.DB,
 	pyClient *ai.PyGraderClient,
 	aiLogRaw bool,
+	graderTimeout time.Duration,
 ) {
 	start := time.Now()
 	logger.Info("cron_user_test_mapping_tick_start")
 	initializedScanned, droppedCount := dropExpiredInitialized(ctx, logger, db)
-	submittedScanned, gradedMappings, gradedRows := gradeSubmitted(ctx, logger, db, pyClient, aiLogRaw)
+	submittedScanned, gradedMappings, gradedRows := gradeSubmitted(ctx, logger, db, pyClient, aiLogRaw, graderTimeout)
 	logger.Info(
 		"cron_user_test_mapping_tick_finish",
 		"initialized_scanned", initializedScanned,
@@ -119,6 +124,7 @@ func gradeSubmitted(
 	db *bun.DB,
 	pyClient *ai.PyGraderClient,
 	aiLogRaw bool,
+	graderTimeout time.Duration,
 ) (int, int, int) {
 	rows, err := listMappingsForGrading(ctx, db, 25)
 	if err != nil {
@@ -129,7 +135,7 @@ func gradeSubmitted(
 	gradedMappings := 0
 	gradedRows := 0
 	for _, r := range rows {
-		n, didGrade := gradeOneMapping(ctx, logger, db, pyClient, r, aiLogRaw)
+		n, didGrade := gradeOneMapping(ctx, logger, db, pyClient, r, aiLogRaw, graderTimeout)
 		if didGrade {
 			gradedMappings++
 		}
@@ -145,6 +151,7 @@ func gradeOneMapping(
 	pyClient *ai.PyGraderClient,
 	mapping usersmodel.UserTestMapping,
 	aiLogRaw bool,
+	graderTimeout time.Duration,
 ) (int, bool) {
 	sections, err := listActiveSectionsByTestID(ctx, db, mapping.TestID)
 	if err != nil {
@@ -198,8 +205,15 @@ func gradeOneMapping(
 		"user_test_mapping_id", mapping.ID.String(),
 		"duration_ms", time.Since(healthStart).Milliseconds(),
 	)
-	logger.Info("cron_py_grader_call_start", "user_test_mapping_id", mapping.ID.String())
-	actx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	if graderTimeout <= 0 {
+		graderTimeout = 5 * time.Minute
+	}
+	logger.Info(
+		"cron_py_grader_call_start",
+		"user_test_mapping_id", mapping.ID.String(),
+		"timeout_seconds", int(graderTimeout.Seconds()),
+	)
+	actx, cancel := context.WithTimeout(ctx, graderTimeout)
 	out, raw, err := pyClient.Grade(actx, pyReq)
 	cancel()
 	if err != nil {
