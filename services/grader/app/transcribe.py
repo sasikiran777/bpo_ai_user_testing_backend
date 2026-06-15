@@ -92,10 +92,14 @@ def transcribe_audio(audio_path: str) -> str:
 
     full = _download_s3_audio(audio_path)
     model = _get_model()
+    language = os.getenv("WHISPER_LANGUAGE", "en").strip()
     start = time.perf_counter()
-    logger.info("transcribe_start audio_path=%s temp_path=%s", audio_path, full)
+    logger.info("transcribe_start audio_path=%s temp_path=%s language=%s", audio_path, full, language or "auto")
     try:
-        segments, _ = model.transcribe(str(full), vad_filter=True)
+        transcribe_kwargs = {"vad_filter": True}
+        if language:
+            transcribe_kwargs["language"] = language
+        segments, _ = model.transcribe(str(full), **transcribe_kwargs)
         text_parts = []
         for s in segments:
             t = (s.text or "").strip()
