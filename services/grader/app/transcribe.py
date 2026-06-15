@@ -11,6 +11,8 @@ from urllib.parse import urlparse
 import boto3
 from faster_whisper import WhisperModel
 
+from .logging_utils import verbose_logging_enabled
+
 _MODEL: Optional[WhisperModel] = None
 _S3_CLIENT = None
 logger = logging.getLogger("grader.transcribe")
@@ -24,14 +26,16 @@ def _get_model() -> WhisperModel:
     device = os.getenv("WHISPER_DEVICE", "cpu")
     compute_type = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
     start = time.perf_counter()
-    logger.info(
-        "whisper_model_load_start model=%s device=%s compute_type=%s",
-        model_name,
-        device,
-        compute_type,
-    )
+    if verbose_logging_enabled():
+        logger.info(
+            "whisper_model_load_start model=%s device=%s compute_type=%s",
+            model_name,
+            device,
+            compute_type,
+        )
     _MODEL = WhisperModel(model_name, device=device, compute_type=compute_type)
-    logger.info("whisper_model_load_finish duration_ms=%s", int((time.perf_counter() - start) * 1000))
+    if verbose_logging_enabled():
+        logger.info("whisper_model_load_finish duration_ms=%s", int((time.perf_counter() - start) * 1000))
     return _MODEL
 
 
@@ -68,14 +72,16 @@ def _download_s3_audio(p: str) -> Path:
 
     try:
         start = time.perf_counter()
-        logger.info("s3_audio_download_start bucket=%s key=%s", bucket, key)
+        if verbose_logging_enabled():
+            logger.info("s3_audio_download_start bucket=%s key=%s", bucket, key)
         _get_s3_client().download_file(bucket, key, tmp_path)
-        logger.info(
-            "s3_audio_download_finish bucket=%s key=%s duration_ms=%s",
-            bucket,
-            key,
-            int((time.perf_counter() - start) * 1000),
-        )
+        if verbose_logging_enabled():
+            logger.info(
+                "s3_audio_download_finish bucket=%s key=%s duration_ms=%s",
+                bucket,
+                key,
+                int((time.perf_counter() - start) * 1000),
+            )
     except Exception:
         try:
             os.remove(tmp_path)
@@ -94,7 +100,9 @@ def transcribe_audio(audio_path: str) -> str:
     model = _get_model()
     language = os.getenv("WHISPER_LANGUAGE", "en").strip()
     start = time.perf_counter()
-    logger.info("transcribe_start audio_path=%s temp_path=%s language=%s", audio_path, full, language or "auto")
+    verbose = verbose_logging_enabled()
+    if verbose:
+        logger.info("transcribe_start audio_path=%s temp_path=%s language=%s", audio_path, full, language or "auto")
     try:
         transcribe_kwargs = {"vad_filter": True}
         if language:
@@ -106,12 +114,13 @@ def transcribe_audio(audio_path: str) -> str:
             if t:
                 text_parts.append(t)
         text = " ".join(text_parts).strip()
-        logger.info(
-            "transcribe_finish audio_path=%s duration_ms=%s transcript_chars=%s",
-            audio_path,
-            int((time.perf_counter() - start) * 1000),
-            len(text),
-        )
+        if verbose:
+            logger.info(
+                "transcribe_finish audio_path=%s duration_ms=%s transcript_chars=%s",
+                audio_path,
+                int((time.perf_counter() - start) * 1000),
+                len(text),
+            )
         return text
     except Exception:
         logger.exception(

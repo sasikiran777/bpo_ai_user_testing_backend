@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
+from .logging_utils import verbose_logging_enabled
 from .schemas import GradeRequest, GradeResponse, SectionResult
 from .transcribe import transcribe_audio
 
@@ -152,15 +153,17 @@ def grade_request(req: GradeRequest) -> GradeResponse:
     start = time.perf_counter()
     section_inputs: List[Tuple[str, str, int, List[str], List[str], List[str]]] = []
     transcripts: Dict[str, str] = {}
+    verbose = verbose_logging_enabled()
 
     for s in req.sections:
         if _is_speaking_section(s.name, s.description):
             section_start = time.perf_counter()
-            logger.info(
-                "speaking_section_prepare_start section_id=%s section_name=%s",
-                s.test_section_mapping_id,
-                s.name,
-            )
+            if verbose:
+                logger.info(
+                    "speaking_section_prepare_start section_id=%s section_name=%s",
+                    s.test_section_mapping_id,
+                    s.name,
+                )
             transcript = ""
             if s.test_notes:
                 transcript = (s.test_notes[0] or "").strip()
@@ -178,12 +181,13 @@ def grade_request(req: GradeRequest) -> GradeResponse:
                     [transcript] if transcript else [],
                 )
             )
-            logger.info(
-                "speaking_section_prepare_finish section_id=%s duration_ms=%s transcript_chars=%s",
-                s.test_section_mapping_id,
-                int((time.perf_counter() - section_start) * 1000),
-                len(transcript),
-            )
+            if verbose:
+                logger.info(
+                    "speaking_section_prepare_finish section_id=%s duration_ms=%s transcript_chars=%s",
+                    s.test_section_mapping_id,
+                    int((time.perf_counter() - section_start) * 1000),
+                    len(transcript),
+                )
             continue
 
         section_inputs.append(
@@ -202,12 +206,13 @@ def grade_request(req: GradeRequest) -> GradeResponse:
     client = _get_client()
     model = _get_model()
     llm_start = time.perf_counter()
-    logger.info(
-        "llm_grade_start user_test_mapping_id=%s model=%s prompt_chars=%s",
-        req.user_test_mapping_id,
-        model,
-        len(prompt),
-    )
+    if verbose:
+        logger.info(
+            "llm_grade_start user_test_mapping_id=%s model=%s prompt_chars=%s",
+            req.user_test_mapping_id,
+            model,
+            len(prompt),
+        )
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -216,12 +221,13 @@ def grade_request(req: GradeRequest) -> GradeResponse:
     raw = ""
     if resp.choices and resp.choices[0].message and resp.choices[0].message.content:
         raw = resp.choices[0].message.content
-    logger.info(
-        "llm_grade_finish user_test_mapping_id=%s duration_ms=%s raw_chars=%s",
-        req.user_test_mapping_id,
-        int((time.perf_counter() - llm_start) * 1000),
-        len(raw),
-    )
+    if verbose:
+        logger.info(
+            "llm_grade_finish user_test_mapping_id=%s duration_ms=%s raw_chars=%s",
+            req.user_test_mapping_id,
+            int((time.perf_counter() - llm_start) * 1000),
+            len(raw),
+        )
 
     parsed = _parse_ai_grades(raw)
 
@@ -245,9 +251,10 @@ def grade_request(req: GradeRequest) -> GradeResponse:
             )
         )
 
-    logger.info(
-        "grade_request_sections_finish user_test_mapping_id=%s duration_ms=%s",
-        req.user_test_mapping_id,
-        int((time.perf_counter() - start) * 1000),
-    )
+    if verbose:
+        logger.info(
+            "grade_request_sections_finish user_test_mapping_id=%s duration_ms=%s",
+            req.user_test_mapping_id,
+            int((time.perf_counter() - start) * 1000),
+        )
     return GradeResponse(sections=results)

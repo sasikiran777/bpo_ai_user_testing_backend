@@ -7,6 +7,7 @@ import uuid
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
+from .logging_utils import verbose_logging_enabled
 from .grade import grade_request
 from .schemas import GradeRequest, GradeResponse
 
@@ -40,13 +41,15 @@ async def log_requests(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     start = time.perf_counter()
     client_host = request.client.host if request.client else ""
-    logger.info(
-        "http_request_start request_id=%s method=%s path=%s client=%s",
-        request_id,
-        request.method,
-        request.url.path,
-        client_host,
-    )
+    verbose = verbose_logging_enabled()
+    if verbose:
+        logger.info(
+            "http_request_start request_id=%s method=%s path=%s client=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            client_host,
+        )
     try:
         response = await call_next(request)
     except Exception:
@@ -58,45 +61,50 @@ async def log_requests(request: Request, call_next):
             int((time.perf_counter() - start) * 1000),
         )
         raise
-    logger.info(
-        "http_request_finish request_id=%s method=%s path=%s status_code=%s duration_ms=%s",
-        request_id,
-        request.method,
-        request.url.path,
-        response.status_code,
-        int((time.perf_counter() - start) * 1000),
-    )
+    if verbose:
+        logger.info(
+            "http_request_finish request_id=%s method=%s path=%s status_code=%s duration_ms=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            int((time.perf_counter() - start) * 1000),
+        )
     response.headers["X-Request-ID"] = request_id
     return response
 
 
 @app.get("/health")
 def health() -> dict:
-    logger.info("health_endpoint_hit")
+    if verbose_logging_enabled():
+        logger.info("health_endpoint_hit")
     return {"ok": True}
 
 
 @app.post("/v1/grade", response_model=GradeResponse)
 def grade(req: GradeRequest, _: None = Depends(_auth)) -> GradeResponse:
     start = time.perf_counter()
-    logger.info(
-        "grade_endpoint_hit user_test_mapping_id=%s test_id=%s",
-        req.user_test_mapping_id,
-        req.test_id,
-    )
-    logger.info(
-        "grade_request_start user_test_mapping_id=%s test_id=%s sections=%s",
-        req.user_test_mapping_id,
-        req.test_id,
-        len(req.sections),
-    )
+    verbose = verbose_logging_enabled()
+    if verbose:
+        logger.info(
+            "grade_endpoint_hit user_test_mapping_id=%s test_id=%s",
+            req.user_test_mapping_id,
+            req.test_id,
+        )
+        logger.info(
+            "grade_request_start user_test_mapping_id=%s test_id=%s sections=%s",
+            req.user_test_mapping_id,
+            req.test_id,
+            len(req.sections),
+        )
     try:
         out = grade_request(req)
-        logger.info(
-            "grade_request_finish user_test_mapping_id=%s duration_ms=%s",
-            req.user_test_mapping_id,
-            int((time.perf_counter() - start) * 1000),
-        )
+        if verbose:
+            logger.info(
+                "grade_request_finish user_test_mapping_id=%s duration_ms=%s",
+                req.user_test_mapping_id,
+                int((time.perf_counter() - start) * 1000),
+            )
         return out
     except Exception:
         logger.exception(
