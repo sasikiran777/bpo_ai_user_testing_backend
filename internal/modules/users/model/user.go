@@ -14,6 +14,6 @@ type User struct {
 	Phone                 string `bun:"phone,notnull"`
 	Email                 string `bun:"email,notnull,unique"`
 	Password              string `bun:"password,notnull"`
-	TypeOfPositionDesired string `bun:"type_of_position_desired,notnull"`
+	TypeOfPositionDesired string `bun:"type_of_position_desired"`
 	ExpInMonths           int    `bun:"exp_in_months,notnull,default:0"`
 }

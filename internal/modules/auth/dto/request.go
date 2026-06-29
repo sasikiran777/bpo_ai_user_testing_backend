@@ -15,8 +15,8 @@ type RegisterRequest struct {
 	Phone                 string `json:"phone" binding:"required"`
 	Email                 string `json:"email" binding:"required,email"`
 	Password              string `json:"password" binding:"required,min=6"`
-	TypeOfPositionDesired string `json:"type_of_position_desired" binding:"required"`
-	ExpInMonths           int    `json:"exp_in_months" binding:"required,min=0"`
+	TypeOfPositionDesired string `json:"type_of_position_desired"`
+	ExpInMonths           int    `json:"exp_in_months"`
 }
 
 func (r *RegisterRequest) ToUserModel() *model.User {

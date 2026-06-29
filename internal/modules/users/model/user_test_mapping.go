@@ -10,8 +10,8 @@ import (
 type UserTestMapping struct {
 	models.BaseModel `bun:"table:user_test_mappings"`
 
-	UserID               uuid.UUID `bun:"user_id,type:uuid,notnull,unique"`
-	TestID               uuid.UUID `bun:"test_id,type:uuid,notnull,unique"`
+	UserID               uuid.UUID `bun:"user_id,type:uuid,notnull"`
+	TestID               uuid.UUID `bun:"test_id,type:uuid,notnull"`
 	Status               string    `bun:"status,default:'initialized'"`
 	ResetCount           int       `bun:"reset_count,notnull,default:0"`
 	StartedAt            time.Time `bun:"started_at,nullzero"`

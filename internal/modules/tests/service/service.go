@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"strings"
 
@@ -111,6 +112,14 @@ func (s *Service) CreateUserTestMapping(
 		return nil, err
 	}
 
+	existingMapping, err := s.repo.GetUserTestMappingByUserIDAndTestID(ctx, userID, testID)
+	if err == nil {
+		return existingMapping, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
 	userTestMapping := usersmodel.UserTestMapping{
 		UserID:               userID,
 		TestID:               testID,
@@ -146,8 +155,8 @@ func (s *Service) SaveAnswers(
 	}
 
 	if mapping.Status == "initialized" {
-		if err := s.repo.MarkUserTestInProgress(ctx, mapping.ID); err != nil {
-			return nil, err
+		if updateErr := s.repo.MarkUserTestInProgress(ctx, mapping.ID); updateErr != nil {
+			return nil, updateErr
 		}
 	}
 
